@@ -1,0 +1,9 @@
+#+title: Trash.jl
+#+author: tecosaur
+
+#+html: <a href="https://tecosaur.github.io/Trash.jl/dev/"><img src="https://img.shields.io/badge/docs-dev-blue.svg"></a>
+
+This package helps you interact with the system's trash in a cross-platform way.
+
+See the docs for more information, but you can also just start using ~trash~
+instead of ~rm~, and ~untrash~ does what you'd expect.

@@ -1,0 +1,59 @@
+#+title: Usage
+
+* Summary
+
+The way that trashing is performed differs /wildly/ between platforms:
++ On Linux, we trashing works by moving files and creating/reading paired
+  ini-style =.trashinfo= files (this is the [[https://specifications.freedesktop.org/trash-spec/1.0/][Freedesktop Trashspec]])
++ On MacOS, trashing is done using the Objective-C API, specifically
+  [[https://developer.apple.com/documentation/foundation/filemanager/trashitem(at:resultingitemurl:)?language=objc][trashItemAtURL:resultingItemURL:error:]]
++ On Windows, we do nothing
+
+These large differences make a coherent cross-platform API a bit difficult, but
+by focusing on just supporting basic functionality (trashing and untrashing,
+listing and emptying trash contents) we have a solid cross-platform trash
+library.
+
+* Example usage
+
+#+begin_src julia-repl
+julia> using Trash
+
+julia> 
+#+end_src
+
+* Functions
+
+#+begin_src @docs
+Trash.trash
+Trash.untrash
+Trash.list
+Trash.empty
+#+end_src
+
+* Types
+
+#+begin_src @docs
+Trash.TrashFile
+#+end_src
+
+* Platform complications
+** Linux (XDG Trash)
+
+Everything works great 🙂.
+
+** MacOS
+
+Listing trash entries and restoring from the trash are not supported. See
+https://developer.apple.com/forums/thread/689800 for more information.
+
+The "put back" functionality is broken, as the =.DS_STORE= file is not properly
+modified with the provided system APIs. See
+https://openradar.appspot.com/23153124 for more information. As the =.DS_STORE=
+format is proprietary and undocumented, with no stability guarantees,
+reverse-engineering it and manually modifying the file seems like a poor idea.
+That said, if you'd like to try this anyway, I'll look at a PR with interest.
+
+** Windows
+
+Nothing is implemented yet.

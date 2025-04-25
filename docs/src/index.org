@@ -1,0 +1,13 @@
+#+title: Trash
+
+Sometimes you want to get rid of a file, but make it possible for it to be
+restored later (by your program or the user).
+
+The way this should be done varies by operating system. This library helps you
+handle this simply and in a (largely, see /Platform Complications/) cross-platform
+way with [[@ref][~trash~]]. It's no surprise that the utility of this function has been
+realised across [[https://github.com/sindresorhus/trash][multiple]] [[https://github.com/arsenetar/send2trash][language]] [[https://github.com/Byron/trash-rs][ecosystems]], with a healthy collection of
+cross-platform trash libraries floating around. Most of these only provide the
+ability to send a file to the trash, but Trash.jl goes further, giving you the
+ability to restore items with [[@ref][~untrash~]], inspect the contents of the trash with
+[[@ref][~list~]], and delete the trash with [[@ref][~empty~]].
