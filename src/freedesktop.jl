@@ -37,11 +37,6 @@ function trash(path::String; force::Bool=false)
     TrashFile(trashpath, path, dtime)
 end
 
-"""
-    list(trashdir::String) -> Vector{TrashFile}
-
-List all entries currently under the trash folder `trashdir`.
-"""
 function list(trashdir::String)
     entries = TrashFile[]
     isdir(joinpath(trashdir, "info")) || return entries

@@ -55,6 +55,12 @@ See also: [`trash`](@ref), [`untrash`](@ref).
 """
 function list end
 
+@doc """
+    list(trashdir::String) -> Vector{TrashFile}
+
+List all entries currently in the trash directory `trashdir`.
+""" list(::String)
+
 """
     untrash(entry::TrashFile; force::Bool=false, rm::Bool=false)
 
@@ -75,6 +81,12 @@ Empty the user trash.
 See also: [`trash`](@ref), [`Trash.list`](@ref).
 """
 function empty end
+
+@doc """
+    empty(trashdir::String)
+
+Empty the trash directory `trashdir`.
+""" empty(::String)
 
 const PLATFORM = @static if Sys.isapple()
     include("darwin.jl")
