@@ -74,10 +74,21 @@ Everything works great 🙂.
 
 ** MacOS
 
-The "put back" functionality is broken, as the =.DS_STORE= file is not properly
+The "put back" functionality is broken, as the =.DS_Store= file is not properly
 modified with the provided system APIs. See
 https://openradar.appspot.com/23153124 for more information.
 
+We rely on parsing the (undocumented) =.DS_Store= file to read trash information.
+
 ** Windows
 
-Nothing is implemented yet.
+Everything works, but trashing a file with knowledge of where it ended up and
+the associated deletion time is rather involved. It's about a thousand times
+slower to delete a file on Windows than Linux or MacOS, but unless you're
+wanting to trash thousands and thousands of files, this shouldn't be a concern.
+
+We rely on an undocumented convention for the recycle bin path, as
+=SHGetKnownFolderPath= pretends that the recycle bin does not correspond to a
+physical folder (even though it does). We also rely on the (undocumented)
+existence of =$R...= and parsed data from =$I...= files in the recycle bin to
+retrieve information on the contents of the recycle bin.
