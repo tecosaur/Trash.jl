@@ -19,6 +19,8 @@ library.
 * Example usage
 
 #+begin_src julia-repl
+julia> using Trash
+
 julia> write("demofile", "some content")
 12
 
