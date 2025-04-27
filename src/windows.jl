@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2025 TEC <contact@tecosaur.net>
+# SPDX-License-Identifier: MPL-2.0
+
 # Types and constants for Windows COM and Shell API
 
 struct WindowsGUID

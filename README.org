@@ -2,6 +2,7 @@
 #+author: tecosaur
 
 #+html: <a href="https://tecosaur.github.io/Trash.jl/dev/"><img src="https://img.shields.io/badge/docs-dev-blue.svg"></a>
+#+html: <a href="https://www.mozilla.org/en-US/MPL/2.0/"><img src="https://img.shields.io/badge/license-MPL%202.0-teal.svg"></a>
 
 This package helps you interact with the system's trash in a cross-platform way.
 

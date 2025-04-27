@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2025 TEC <contact@tecosaur.net>
+# SPDX-License-Identifier: MPL-2.0
+
 # Generic code that is not specific to any backend,
 # as well as the API that is implemented by specific backends.
 

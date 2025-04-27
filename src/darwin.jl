@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2025 TEC <contact@tecosaur.net>
+# SPDX-License-Identifier: MPL-2.0
+
 # References:
 # - https://developer.apple.com/documentation/objectivec/objective-c_runtime
 # - https://developer.apple.com/documentation/objectivec/1456712-objc_msgsend

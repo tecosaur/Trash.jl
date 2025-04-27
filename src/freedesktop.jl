@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2025 TEC <contact@tecosaur.net>
+# SPDX-License-Identifier: MPL-2.0
+
 # See <https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html>
 
 const RFC3339 = dateformat"yyyy-mm-dd\THH:MM:SS"
