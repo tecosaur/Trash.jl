@@ -434,22 +434,22 @@ function trash(path::String; force::Bool=false)::Union{TrashFile, Nothing}
     TrashFile(sink.recyclepath, path, dtime)
 end
 
-function untrash(entry::TrashFile; force::Bool=false, rm::Bool=false)
-    if ispath(entry.path)
+function untrash(entry::TrashFile, dest::String = entry.path; force::Bool=false, rm::Bool=false)
+    if ispath(dest)
         if rm
-            Base.rm(entry.path, force=true, recursive=true)
+            Base.rm(dest, force=true, recursive=true)
         elseif force
-            trash(entry.path)
+            trash(dest)
         else
-            throw(ArgumentError("$(sprint(show, entry.path)) already exists. `force=true` is required to remove it before restoring the trash entry."))
+            throw(ArgumentError("$(sprint(show, dest)) already exists. `force=true` is required to remove it before restoring the trash entry."))
         end
     end
-    mv(entry.trashfile, entry.path)
+    mv(entry.trashfile, dest)
     try # Cleanup metadata on a best-effort basis
         mdata = metadatafile(entry)
         !isnothing(mdata) && Base.rm(mdata)
     catch end
-    entry.path
+    dest
 end
 
 function trashdir(path::String)

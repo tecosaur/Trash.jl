@@ -369,24 +369,20 @@ function trash(path::String; force::Bool=false)
     TrashFile(trashfile, path, unix2datetime(ctime(trashfile)))
 end
 
-function untrash(entry::TrashFile; force::Bool=false, rm::Bool=false)
+function untrash(entry::TrashFile, dest::String=entry.path; force::Bool=false, rm::Bool=false)
     ispath(entry.trashfile) || throw(ArgumentError("$(sprint(show, entry.trashfile)) no such file or directory (ENOENT)"))
-    if ispath(entry.path)
+    if ispath(dest)
         if rm
-            Base.rm(entry.path, force=true, recursive=true)
+            Base.rm(dest, force=true, recursive=true)
         elseif force
-            trash(entry.path)
+            trash(dest)
         else
-            throw(ArgumentError("$(sprint(show, entry.path)) already exists. `force=true` is required to remove it before restoring the trash entry."))
+            throw(ArgumentError("$(sprint(show, dest)) already exists. `force=true` is required to remove it before restoring the trash entry."))
         end
     end
     # Restore file
-    mv(entry.trashfile, entry.path)
-    entry.path
-end
-
-function untrash(::String)
-    error("Restoring files from the trash by path is not supported on Darwin, and may not be possible (https://developer.apple.com/forums/thread/689800).")
+    mv(entry.trashfile, dest)
+    dest
 end
 
 function list(trashdir::String)

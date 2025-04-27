@@ -62,9 +62,13 @@ List all entries currently in the trash directory `trashdir`.
 """ list(::String)
 
 """
-    untrash(entry::TrashFile; force::Bool=false, rm::Bool=false)
+    untrash(entry::TrashFile, dest::String = original path;
+            force::Bool = false, rm::Bool = false)
 
 Restore a file, link, or directory represented by `entry` from the system trash.
+
+The entry will be restored to the path `dest`, which defaults to the original
+location of the `entry`.
 
 If `force` is `true`, any existing file at the destination will be trashed,
 and if `rm` is `true`, the file will be removed with `Base.rm`.
@@ -74,10 +78,10 @@ See also: [`trash`](@ref), [`Trash.list`](@ref).
 function untrash end
 
 """
-    untrash(path::String; pick::Symbol = :only,
+    untrash(path::String, dest::String = path; pick::Symbol = :only,
             force::Bool = false, rm::Bool = false)
 
-Restore the original contents of `path`.
+Restore the original contents of `path`, optionally specifying a different `dest`ination.
 
 Should multiple entries of `path` exist in the trash, an entry will be
 chosen based on the `pick` option. The default is `:only`, which will throw an
@@ -86,7 +90,8 @@ chosen based on the `pick` option. The default is `:only`, which will throw an
 
 The `force` and `rm` options are passed through to the `untrash(::TrashFile)` function.
 """
-function untrash(path::String; force::Bool=false, rm::Bool=false, pick::Symbol = :only)
+function untrash(path::String, dest::String=path;
+                 force::Bool=false, rm::Bool=false, pick::Symbol = :only)
     candidates = search(path)
     entry = if isempty(candidates)
         throw(ArgumentError("$(sprint(show, path)) is not present in the trash."))
@@ -102,7 +107,7 @@ function untrash(path::String; force::Bool=false, rm::Bool=false, pick::Symbol =
         throw(ArgumentError("Invalid `pick` option: $(sprint(show, pick)). Use `:newest`, `:oldest` or `:only`."))
     end
     # Restore the file
-    untrash(first(candidates); force, rm)
+    untrash(first(candidates), dest; force, rm)
 end
 
 """

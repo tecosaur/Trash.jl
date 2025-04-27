@@ -61,24 +61,24 @@ end
 
 empty() = empty(trashdir())
 
-function untrash(entry::TrashFile; force::Bool=false, rm::Bool=false)
-    if ispath(entry.path)
+function untrash(entry::TrashFile, dest::String = entry.path; force::Bool=false, rm::Bool=false)
+    if ispath(dest)
         if rm
-            Base.rm(entry.path, force=true, recursive=true)
+            Base.rm(dest, force=true, recursive=true)
         elseif force
-            trash(entry.path)
+            trash(dest)
         else
-            throw(ArgumentError("$(sprint(show, entry.path)) already exists. `force=true` is required to remove it before restoring the trash entry."))
+            throw(ArgumentError("$(sprint(show, dest)) already exists. `force=true` is required to remove it before restoring the trash entry."))
         end
     end
     # Restore file
-    mv(entry.trashfile, entry.path)
+    mv(entry.trashfile, dest)
     # Remove .trashinfo
     trashdir = dirname(dirname(entry.trashfile))
     infofile = joinpath(trashdir, "info", basename(entry.trashfile) * ".trashinfo")
     isfile(infofile) && Base.rm(infofile)
     # Update dirsizes if needed
-    if isdir(entry.path) && isfile((dirsizesfile = joinpath(trashdir, "directorysizes");))
+    if isdir(dest) && isfile((dirsizesfile = joinpath(trashdir, "directorysizes");))
         dirsizes = IOBuffer(read(dirsizesfile))
         io = open(dirsizesfile, "w")
         for line in eachline(dirsizes)
@@ -90,7 +90,7 @@ function untrash(entry::TrashFile; force::Bool=false, rm::Bool=false)
         end
         close(io)
     end
-    entry.path
+    dest
 end
 
 
