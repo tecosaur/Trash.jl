@@ -4,7 +4,14 @@
 #+html: <a href="https://tecosaur.github.io/Trash.jl/dev/"><img src="https://img.shields.io/badge/docs-dev-blue.svg"></a>
 #+html: <a href="https://www.mozilla.org/en-US/MPL/2.0/"><img src="https://img.shields.io/badge/license-MPL%202.0-teal.svg"></a>
 
-This package helps you interact with the system's trash in a cross-platform way.
+A cross-platform library for safe, recoverable file deletion. Move files and
+directories to your system's trash rather than deleting them outright, and
+manage trashed items programmatically --- all with one uniform API.
 
-See the docs for more information, but you can also just start using ~trash~
-instead of ~rm~, and ~untrash~ does what you'd expect.
+See the docs (and docstrings) for a detailed overview, but you can also just get
+started by using ~trash~ instead of ~rm~.
+
+Most trashing libraries (particularly cross-platform ones) stop at sending
+things to the trash; this library lets you inspect and retrieve items from the
+trash with ~Trash.list~ and ~untrash~. Finally, you can invoke ~Trash.empty~ to make
+deletion a bit more permanent.

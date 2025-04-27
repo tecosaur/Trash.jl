@@ -168,6 +168,9 @@ Empty the trash directory `trashdir`.
 
 Restore the original contents of `path`, optionally specifying a different `dest`ination.
 
+The `path` is the original path of the file or directory to be restored, and has
+no connection to how the resource is stored in the trash.
+
 Should multiple entries of `path` exist in the trash, an entry will be
 chosen based on the `pick` option. The default is `:only`, which will throw an
 `ArgumentError` if multiple entries are found. The other options are `:newest` and
