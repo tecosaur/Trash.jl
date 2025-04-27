@@ -8,8 +8,9 @@ The way that trashing is performed differs /wildly/ between platforms:
 + On MacOS, trashing is done using the Objective-C API, specifically
   [[https://developer.apple.com/documentation/foundation/filemanager/trashitem(at:resultingitemurl:)?language=objc][~trashItemAtURL:resultingItemURL:error:~]] and manually parsing the =.DS_Store=
   file.
-+ On Windows, the Win32 API is used for [[https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-deleteitem][trashing]], and the remaining
-  functionality is implemented by manually inspecting the recycling bin.
++ On Windows, the Win32 [[https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-deleteitem][~IFileOperation::DeleteItem~]] API is used for trashing,
+  and the remaining functionality is implemented by manually inspecting the
+  recycling bin.
 
 These large differences make a coherent cross-platform API a bit difficult, but
 by focusing on just supporting basic functionality (trashing and untrashing,
