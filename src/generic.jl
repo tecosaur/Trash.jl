@@ -35,6 +35,56 @@ function Base.show(io::IO, tf::TrashFile)
     end
 end
 
+struct TrashFileMissing <: Exception
+    path::String
+    seen::Bool
+end
+
+TrashFileMissing(tf::TrashFile) =
+    TrashFileMissing(tf.path, true)
+
+function Base.showerror(io::IO, ex::TrashFileMissing)
+    print(io, "TrashFileMissing: ", ex.path, if ex.seen
+              "\n  This is likely because the trash has been emptied or this file restored from the trash."
+          else
+              "\n  Perhaps it never was, are you sure you passed the right path?\
+              \n  Otherwise it's likely because the trash has been emptied or the path already restored."
+          end)
+end
+
+struct TrashSystemError <: Exception
+    callname::String
+    msg::Union{String, Nothing}
+    code::Union{Int, Nothing}
+end
+
+@static if Sys.iswindows()
+    TrashSystemError(callname::String) =
+        TrashSystemError(callname, nothing, Base.Libc.GetLastEror())
+else
+    TrashSystemError(callname::String) =
+        TrashSystemError(callname, nothing, Base.Libc.errno())
+end
+
+TrashSystemError(callname::String, msg::String) =
+    TrashSystemError(callname, msg, nothing)
+
+function Base.showerror(io::IO, ex::TrashSystemError)
+    msg = ex.msg
+    if isnothing(msg) && !isnothing(ex.code)
+        msg = @static if Sys.iswindows()
+            Base.Libc.FormatMessage(ex.code % UInt32)
+        else
+            Base.libc.strerror(ex.code)
+        end
+    end
+    print(io, "TrashSystemError")
+    isempty(ex.callname) || print(io, ": ", ex.callname)
+    isnothing(msg) || print(io, ": ", msg)
+    isnothing(ex.code) || print(io, " (code: ", ex.code, ")")
+    nothing
+end
+
 
 # Trash backend API
 
@@ -130,7 +180,7 @@ function untrash(path::String, dest::String=path;
     path = abspath(path)
     candidates = search(path)
     entry = if isempty(candidates)
-        throw(ArgumentError("$(sprint(show, path)) is not present in the trash."))
+        throw(TrashFileMissing(path, false))
     elseif length(candidates) == 1
         first(candidates)
     elseif pick === :newest

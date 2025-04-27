@@ -7,7 +7,8 @@ const RFC3339 = dateformat"yyyy-mm-dd\THH:MM:SS"
 
 function trash(path::String; force::Bool=false)
     path = abspath(path)
-    ispath(path) || (force && return) || throw(Base.IOError("trash($(sprint(show, path))) no such file or directory (ENOENT)", -Base.Libc.ENOENT))
+    ispath(path) || (force && return) ||
+        throw(Base.IOError("trash($(sprint(show, path))) no such file or directory (ENOENT)", -Base.Libc.ENOENT))
     # Strip the trailing `/` from directories if needed
     if endswith(path, '/')
         path = path[1:prevind(path, end)]
@@ -66,6 +67,7 @@ end
 empty() = empty(trashdir())
 
 function untrash(entry::TrashFile, dest::String = entry.path; force::Bool=false, rm::Bool=false)
+    isfile(entry.trashfile) || throw(TrashFileMissing(entry))
     if ispath(dest)
         if rm
             Base.rm(dest, force=true, recursive=true)

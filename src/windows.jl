@@ -171,7 +171,7 @@ mutable struct TrashProgressSink
     refcount::Culong
     priorpath::String
     recyclepath::String
-    error::Union{ErrorException, Nothing}
+    error::Union{TrashSystemError, Nothing}
 end
 
 TrashProgressSink() =
@@ -220,11 +220,11 @@ function sink_PostDeleteItem(fileop::Ptr{TrashProgressSink}, dwFlags::DWORD, psi
         if issuccess(hr_orig) && priorpath_ptr[] != C_NULL
             sink.priorpath = unsafe_utf16string(priorpath_ptr[]) # Use safe helper
         else
-            sink.error = ErrorException("PostDeleteItem: Failed to get original path display name. HRESULT=$(string(hr_orig, base=16))")
+            sink.error = TrashSystemError("IFileOperationProgressSink.GetDisplayName", "failed to get original path display name", hr_orig)
         end
         CoTaskMemFree(priorpath_ptr[])
     else
-        sink.error = ErrorException("PostDeleteItem: Original IShellItem pointer was NULL.")
+        sink.error = TrashSystemError("IFileOperationProgressSink.PostDeleteItem", "Original IShellItem pointer was NULL.")
     end
     # Get Recycle Bin Path
     if psiNewlyCreated != C_NULL
@@ -237,12 +237,12 @@ function sink_PostDeleteItem(fileop::Ptr{TrashProgressSink}, dwFlags::DWORD, psi
         if issuccess(hr_new) && recyclepath_ptr[] != C_NULL
             sink.recyclepath = unsafe_utf16string(recyclepath_ptr[])
         else
-            sink.error = ErrorException("PostDeleteItem: Failed to get newly created path display name. HRESULT=$(string(hr_new, base=16))")
+            sink.error = TrashSystemError("IFileOperationProgressSink.GetDisplayName", "failed to get recycle path display name", hr_new)
         end
         CoTaskMemFree(recyclepath_ptr[])
     else
         # This is expected if the delete operation failed or didn't recycle (e.g., Shift+Delete)
-        sink.error = ErrorException("PostDeleteItem: Newly created IShellItem pointer was NULL. Item might not have been recycled?")
+        sink.error = TrashSystemError("IFileOperationProgressSink.PostDeleteItem", "newly created IShellItem pointer was NULL; item might not have been recycled?", hrDelete)
     end
     S_OK
 end
@@ -316,7 +316,7 @@ function usersid()
     success = ccall((:OpenProcessToken, "advapi32"), stdcall, Cint,
                     (HANDLE, DWORD, PHANDLE),
                     proc_handle, TOKEN_QUERY, token_handle)
-    success == 0 && throw(SystemError("OpenProcessToken"))
+    success == 0 && throw(TrashSystemError("OpenProcessToken"))
     # 3. Get Token Information (first call for size)
     required_size = Ref{DWORD}(0)
     # Call with NULL buffer to get required size
@@ -328,9 +328,10 @@ function usersid()
     (err_code == ERROR_INSUFFICIENT_BUFFER && required_size[] != 0) ||
         ccall((:CloseHandle, "kernel32"), stdcall, Cint, (HANDLE,), token_handle[])
     if err_code != ERROR_INSUFFICIENT_BUFFER
-        throw(ErrorException("GetTokenInformation (size query) failed unexpectedly with error code: $err_code"))
+        throw(TrashSystemError("GetTokenInformation", "failed unexpectedly", err_code))
     end
-    required_size[] == 0 && throw(ErrorException("GetTokenInformation reported zero required size."))
+    required_size[] == 0 &&
+        throw(TrashSystemError("GetTokenInformation", "reported zero required size"))
     # 4. Allocate buffer and get Token Information (second call for data)
     token_info_buffer = Vector{UInt8}(undef, required_size[])
     bytes_returned = Ref{DWORD}(0) # Can reuse required_size, but this is clearer
@@ -338,19 +339,19 @@ function usersid()
                     (HANDLE, Cint, LPVOID, DWORD, Ptr{DWORD}),
                     token_handle[], TokenUser, pointer(token_info_buffer), required_size[], bytes_returned)
     ccall((:CloseHandle, "kernel32"), stdcall, Cint, (HANDLE,), token_handle[])
-    success == 0 && throw(SystemError("GetTokenInformation"))
+    success == 0 && throw(TrashSystemError("GetTokenInformation"))
     # 5. Extract the PSID from the TOKEN_USER structure
     # The TOKEN_USER struct starts with SID_AND_ATTRIBUTES, which starts with the PSID.
     # So, the PSID is effectively at the start of the buffer. We need to read the pointer.
     # We need Ptr{PSID} which is Ptr{Ptr{Cvoid}}
     psid_ptr = unsafe_load(convert(Ptr{PSID}, pointer(token_info_buffer)))
-    psid_ptr == C_NULL && throw(ErrorException("Extracted PSID from token information is NULL."))
+    psid_ptr == C_NULL && throw(TrashSystemError("", "Extracted PSID from token information is NULL."))
     # 6. Convert SID to String
     sid_ptr = Ref{LPWSTR}(C_NULL)
     success = ccall((:ConvertSidToStringSidW, "advapi32"), stdcall, Cint,
                     (PSID, PLPWSTR),
                     psid_ptr, sid_ptr)
-    success == 0 && throw(SystemError("ConvertSidToStringSidW"))
+    success == 0 && throw(TrashSystemError("ConvertSidToStringSidW"))
     sid = unsafe_utf16string(sid_ptr[])
     ccall((:LocalFree, "kernel32"), stdcall, Ptr{Cvoid}, (Ptr{Cvoid},), sid_ptr[])
     sid
@@ -361,14 +362,13 @@ end
 
 function trash(path::String; force::Bool=false)::Union{TrashFile, Nothing}
     path = abspath(path)
-    ispath(path) || throw(Base.IOError("trash($(sprint(show, path))): no such file or directory (ENOENT)", -Base.Libc.ENOENT))
+    ispath(path) || (force && return) ||
+        throw(Base.IOError("trash($(sprint(show, path))) no such file or directory (ENOENT)", -Base.Libc.ENOENT))
     sink = TrashProgressSink()
-
     # 1. Initialize COM
     status = ccall((:CoInitializeEx, "ole32"), stdcall, HRESULT, (LPVOID, DWORD), C_NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)
     isfailed(status) && status != RPC_E_CHANGED_MODE &&
-        throw(ErrorException("CoInitializeEx failed: HRESULT=$(string(status, base=16))"))
-
+        throw(TrashSystemError("CoInitializeEx", nothing, status))
     try
         # Keep the sink object alive for the duration of the COM calls
         GC.@preserve sink begin
@@ -377,7 +377,7 @@ function trash(path::String; force::Bool=false)::Union{TrashFile, Nothing}
             status = ccall((:CoCreateInstance, "ole32"), stdcall, HRESULT,
                     (REFCLSID, Ptr{IUnknown}, DWORD, REFIID, Ptr{Ptr{IFileOperation}}),
                     Ref(CLSID_FileOperation), C_NULL, CLSCTX_ALL, Ref(IID_IFileOperation), file_op_indirect)
-            isfailed(status) && throw(ErrorException("CoCreateInstance(CLSID_FileOperation) failed: HRESULT=$(string(status, base=16))"))
+            isfailed(status) && throw(TrashSystemError("CoCreateInstance", nothing, status))
             file_op_ptr = file_op_indirect[]
             try
                 # Get IFileOperation vtable pointer
@@ -386,35 +386,35 @@ function trash(path::String; force::Bool=false)::Union{TrashFile, Nothing}
                 # 3. Set Operation Flags
                 op_flags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT
                 status = ccall(vtbl_op.SetOperationFlags, stdcall, HRESULT, (Ptr{IFileOperation}, DWORD), file_op_ptr, op_flags)
-                isfailed(status) && throw(ErrorException("IFileOperation::SetOperationFlags failed: HRESULT=$(string(status, base=16))"))
+                isfailed(status) && throw(TrashSystemError("IFileOperation::SetOperationFlags", nothing, status))
                 # 4. Register the Sink
     advise_cookie = Ref{DWORD}(0)
                 status = ccall(vtbl_op.Advise, stdcall, HRESULT,
                         (Ptr{IFileOperation}, Ptr{TrashProgressSink}, Ptr{DWORD}),
                         file_op_ptr, pointer_from_objref(sink), advise_cookie) # Pass pointer to Julia object
-                isfailed(status) && throw(ErrorException("IFileOperation::Advise failed: HRESULT=$(string(status, base=16))"))
+                isfailed(status) && throw(TrashSystemError("IFileOperation::Advise", nothing, status))
                 try
                     # 5. Create IShellItem from path
                     item_ref = Ref(Ptr{IShellItem}(C_NULL))
                     status = ccall((:SHCreateItemFromParsingName, "shell32"), stdcall, HRESULT,
                             (LPCWSTR, Ptr{Cvoid}, REFIID, Ptr{Ptr{IShellItem}}),
                             pointer(utf16nul(path)), C_NULL, Ref(IID_IShellItem), item_ref)
-                    isfailed(status) && throw(ErrorException("SHCreateItemFromParsingName for '$path' failed: HRESULT=$(string(status, base=16))"))
+                    isfailed(status) && throw(TrashSystemError("SHCreateItemFromParsingName", nothing, status))
                     item_ptr = item_ref[]
                     # 6. Queue the Delete operation
                     status = ccall(vtbl_op.DeleteItem, stdcall, HRESULT,
                             (Ptr{IFileOperation}, Ptr{IShellItem}, Ptr{Cvoid}),
                             file_op_ptr, item_ptr, C_NULL) # 3rd arg is context for sink, NULL ok
-                    isfailed(status) && throw(ErrorException("IFileOperation::DeleteItem failed: HRESULT=$(string(status, base=16))"))
+                    isfailed(status) && throw(TrashSystemError("IFileOperation::DeleteItem", nothing, status))
                     # 7. Perform the operation (Triggers sink_PostDeleteItem)
                     status = ccall(vtbl_op.PerformOperations, stdcall, HRESULT, (Ptr{IFileOperation},), file_op_ptr)
-                    isfailed(status) && throw(ErrorException("IFileOperation::PerformOperations failed: HRESULT=$(string(status, base=16))"))
+                    isfailed(status) && throw(TrashSystemError("IFileOperation::PerformOperations", nothing, status))
                     release(item_ptr) # Release IShellItem
                 finally
                     # 9. Unadvise the Sink
                     if advise_cookie[] != 0
                          hr_unadvise = ccall(vtbl_op.Unadvise, stdcall, HRESULT, (Ptr{IFileOperation}, DWORD), file_op_ptr, advise_cookie[])
-                         isfailed(hr_unadvise) && throw(ErrorException("IFileOperation::Unadvise failed: HRESULT=$(string(hr_unadvise, base=16))"))
+                         isfailed(hr_unadvise) && throw(TrashSystemError("IFileOperation::Unadvise", nothing, status))
                     end
                 end
             finally
@@ -427,7 +427,7 @@ function trash(path::String; force::Bool=false)::Union{TrashFile, Nothing}
     end
     isnothing(sink.error) || throw(sink.error) # Rethrow any error captured in the sink
     isempty(sink.recyclepath) &&
-        throw(ErrorException("PostDeleteItem: Failed to capture paths, recycle path is NULL. Item might not have been recycled?"))
+        throw(TrashSystemError("PostDeleteItem", "Failed to capture paths, recycle path is NULL. Item might not have been recycled?"))
     mdata = parsemetadata(metadatafile(sink.recyclepath))
     dtime = if isnothing(mdata)
         now(UTC)
@@ -438,6 +438,7 @@ function trash(path::String; force::Bool=false)::Union{TrashFile, Nothing}
 end
 
 function untrash(entry::TrashFile, dest::String = entry.path; force::Bool=false, rm::Bool=false)
+    isfile(entry.trashfile) || throw(TrashFileMissing(entry))
     if ispath(dest)
         if rm
             Base.rm(dest, force=true, recursive=true)
@@ -487,7 +488,7 @@ function empty()
     hr = ccall((:SHEmptyRecycleBinW, "shell32"), stdcall, HRESULT,
                (Ptr{Cvoid}, LPCWSTR, DWORD), C_NULL, C_NULL, flags)
     if isfailed(hr)
-        throw(ErrorException("Failed to empty Recycle Bin. SHEmptyRecycleBinW returned HRESULT=$(string(hr, base=16))"))
+        throw(TrashSystemError("SHEmptyRecycleBinW", nothing, hr))
     end
 end
 

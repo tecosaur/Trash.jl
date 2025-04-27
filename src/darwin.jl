@@ -353,7 +353,8 @@ end # DSStore
 # Now to actually implement the trash functionality
 
 function trash(path::String; force::Bool=false)
-    ispath(path) || (force && return) || throw(Base.IOError("trash($(sprint(show, path))) no such file or directory (ENOENT)", -Base.Libc.ENOENT))
+    ispath(path) || (force && return) ||
+        throw(Base.IOError("trash($(sprint(show, path))) no such file or directory (ENOENT)", -Base.Libc.ENOENT))
     trashfile_ptr = Ref(Ptr{Cvoid}())
     error_ptr = Ref(Ptr{Cvoid}())
     successflag = @ccall objc_msgSend(
@@ -361,10 +362,10 @@ function trash(path::String; force::Bool=false)
         ObjC.nsurl(path)::Ptr{Cvoid}, trashfile_ptr::Ptr{Ptr{Cvoid}}, error_ptr::Ptr{Ptr{Cvoid}})::Bool
     if !successflag
         error_ptr[] == C_NULL &&
-            throw(Base.IOError("Failed to trash $path for some unknown reason", 0))
+            throw(TrashSystemError("trashItemAtURL", "Failed to trash $path for some unknown reason", 0))
         error_code = @ccall objc_msgSend(error_ptr[]::Ptr{Cvoid}, ObjC.selector("code")::Ptr{Cvoid})::Csize_t
         error_domain = @ccall objc_msgSend(error_ptr[]::Ptr{Cvoid}, ObjC.selector("domain")::Ptr{Cvoid})::Ptr{Cvoid}
-        throw(IOError("Failed to delete $(sprint(show, path)). Darwin error code: $error_code, domain: $(ObjC.ns2string(error_domain))", 0))
+        throw(TrashSystemError("trashItemAtURL", "Failed to trash $(sprint(show, path)). Darwin error code: $error_code, domain: $(ObjC.ns2string(error_domain))", 0))
     end
     trashfile_nsstring = @ccall objc_msgSend(
         trashfile_ptr[]::Ptr{Cvoid}, ObjC.selector("path")::Ptr{Cvoid})::Ptr{Cvoid}
@@ -373,7 +374,7 @@ function trash(path::String; force::Bool=false)
 end
 
 function untrash(entry::TrashFile, dest::String=entry.path; force::Bool=false, rm::Bool=false)
-    ispath(entry.trashfile) || throw(ArgumentError("$(sprint(show, entry.trashfile)) no such file or directory (ENOENT)"))
+    isfile(entry.trashfile) || throw(TrashFileMissing(entry))
     if ispath(dest)
         if rm
             Base.rm(dest, force=true, recursive=true)
@@ -392,6 +393,8 @@ function list(trashdir::String)
     entries = TrashFile[]
     dsstorefile = joinpath(trashdir, ".DS_Store")
     isfile(dsstorefile) || return entries
+    isreadable(dsstorefile) ||
+        throw(TrashSystemError("read", "Permission denied to read $dsstorefile, this application has likely not been granted the full disk access permission.", 0))
     dsstore = open(dsstorefile, "r")
     putbackfile = ""
     putbacklocation = ""
@@ -417,7 +420,9 @@ list() = list(trashdir())
 
 function empty(trashdir::String)
     dsstorefile = joinpath(trashdir, ".DS_Store")
-    isfile(dsstorefile) || return entries
+    isfile(dsstorefile) || return
+    isreadable(dsstorefile) ||
+        throw(TrashSystemError("read", "Permission denied to read $dsstorefile, this application has likely not been granted the full disk access permission.", 0))
     dsstore = open(dsstorefile, "r")
     for record in DSStoreParser.DSStore(dsstore)
         if record.kind == :ptbN
