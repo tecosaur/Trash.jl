@@ -57,9 +57,13 @@ julia> read("demofile", String)
 #+begin_src @docs
 Trash.trash
 Trash.untrash
+Trash.untrash(::String)
 Trash.trashdir
+Trash.trashdir(::String)
 Trash.list
+Trash.list(::String)
 Trash.empty
+Trash.empty(::String)
 #+end_src
 
 * Types
