@@ -5,7 +5,7 @@ using Dates
 export trash, untrash, TrashFile
 
 @static if VERSION >= v"1.11"
-    eval(Expr(:public, :list, :empty))
+    eval(Expr(:public, :trashdir, :list, :empty))
 end
 
 include("generic.jl")

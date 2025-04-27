@@ -45,7 +45,18 @@ See also: [`Trash.list`](@ref), [`untrash`](@ref).
 """
 function trash end
 
-# TODO see if `trashdir` is cross-platform enough
+"""
+    trashdir() -> String
+
+Return the general trash directory for the current user.
+"""
+function trashdir end
+
+@doc """
+    trashdir(path::String) -> String
+
+Return the trash directory used for `path`.
+""" trashdir(::String)
 
 """
     list() -> Vector{TrashFile}
@@ -60,6 +71,8 @@ function list end
     list(trashdir::String) -> Vector{TrashFile}
 
 List all entries currently in the trash directory `trashdir`.
+
+See also: [`trashdir`](@ref), [`search`](@ref).
 """ list(::String)
 
 """

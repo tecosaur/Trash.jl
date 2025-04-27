@@ -93,32 +93,6 @@ function untrash(entry::TrashFile, dest::String = entry.path; force::Bool=false,
     dest
 end
 
-
-# Helper functions
-
-"""
-    trashname(path::String, trashdir::String)
-
-Obtain a unique trash file name for `path`.
-"""
-function trashname(path::String, trashdir::String)
-    name = basename(path)
-    !ispath(joinpath(trashdir, "info", name * ".trashinfo")) && return name
-    suffixed, suffix = name, 0
-    while ispath(joinpath(trashdir, "info", suffixed * ".trashinfo"))
-        suffix += 1
-        suffixed = string(name, " (", suffix, ')')
-    end
-    suffixed
-end
-
-"""
-    trashdir()
-    trashdir(path::String)
-
-Obtain the appropriate trash directory for the current user,
-or `path` if specified.
-"""
 function trashdir(path::String)
     mountroot = mountof(path)
     # Quick check if the user trash directory is best
@@ -140,6 +114,25 @@ function trashdir(path::String)
 end
 
 trashdir() = joinpath(get(ENV, "XDG_DATA_HOME", joinpath(homedir(), "~/.local/share")), "Trash")
+
+
+# Helper functions
+
+"""
+    trashname(path::String, trashdir::String)
+
+Obtain a unique trash file name for `path`.
+"""
+function trashname(path::String, trashdir::String)
+    name = basename(path)
+    !ispath(joinpath(trashdir, "info", name * ".trashinfo")) && return name
+    suffixed, suffix = name, 0
+    while ispath(joinpath(trashdir, "info", suffixed * ".trashinfo"))
+        suffix += 1
+        suffixed = string(name, " (", suffix, ')')
+    end
+    suffixed
+end
 
 """
     mountof(path::String)

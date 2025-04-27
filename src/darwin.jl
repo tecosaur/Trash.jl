@@ -429,9 +429,6 @@ end
 
 empty() = empty(trashdir())
 
-
-# Helper functions
-
 const NSTrashDirectory = Clong(102)
 const NSUserDomainMask = Clong(1)
 

@@ -30,6 +30,7 @@ julia>
 #+begin_src @docs
 Trash.trash
 Trash.untrash
+Trash.trashdir
 Trash.list
 Trash.empty
 #+end_src
