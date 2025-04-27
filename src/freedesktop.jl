@@ -85,37 +85,12 @@ function untrash(entry::TrashFile; force::Bool=false, rm::Bool=false)
             if sum(==(' '), line) >= 3
                 size, mtime, path_esc = split(line, ' ', limit=3)
                 path = rfc2396_unescape(path_esc)
-                path != entry.path && println(io, line)
+                path != dest && println(io, line)
             end
         end
         close(io)
     end
     entry.path
-end
-
-# Extra functionality
-
-function search(path::String)
-    if endswith(path, '/')
-        path = path[1:prevind(path, end)]
-    end
-    path = abspath(path)
-    entries = TrashFile[]
-    for entry in list(trashdir(path))
-        entry.path == path && push!(entries, entry)
-    end
-    entries
-end
-
-function untrash(path::String; force::Bool=false, rm::Bool=false)
-    candidates = search(path)
-    isempty(candidates) &&
-        throw(ArgumentError("$(sprint(show, path)) is not present in the trash."))
-    if length(candidates) > 1
-        @warn "Multiple $(length(candidates)) trash candidates for $(sprint(show, path)), picking the most recent"
-        sort!(candidates, rev=true)
-    end
-    untrash(first(candidates); force, rm)
 end
 
 

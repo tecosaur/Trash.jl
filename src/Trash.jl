@@ -74,6 +74,55 @@ See also: [`trash`](@ref), [`Trash.list`](@ref).
 function untrash end
 
 """
+    untrash(path::String; pick::Symbol = :only,
+            force::Bool = false, rm::Bool = false)
+
+Restore the original contents of `path`.
+
+Should multiple entries of `path` exist in the trash, an entry will be
+chosen based on the `pick` option. The default is `:only`, which will throw an
+`ArgumentError` if multiple entries are found. The other options are `:newest` and
+`:oldest`, which will select the most recent or oldest entry, respectively.
+
+The `force` and `rm` options are passed through to the `untrash(::TrashFile)` function.
+"""
+function untrash(path::String; force::Bool=false, rm::Bool=false, pick::Symbol = :only)
+    candidates = search(path)
+    entry = if isempty(candidates)
+        throw(ArgumentError("$(sprint(show, path)) is not present in the trash."))
+    elseif length(candidates) == 1
+        first(candidates)
+    elseif pick === :newest
+        first(findmax(e -> e.dtime, candidates))
+    elseif pick === :oldest
+        first(findmin(e -> e.dtime, candidates))
+    elseif pick === :only
+        throw(ArgumentError("Multiple $(length(candidates)) trash candidates for $(sprint(show, path)), please use `pick=:newest` or `pick=:oldest` to select one."))
+    else
+        throw(ArgumentError("Invalid `pick` option: $(sprint(show, pick)). Use `:newest`, `:oldest` or `:only`."))
+    end
+    # Restore the file
+    untrash(first(candidates); force, rm)
+end
+
+"""
+    search(path::String) -> Vector{TrashFile}
+
+Search for `path` entries in the trash.
+"""
+function search(path::String)
+    entries = TrashFile[]
+    if endswith(path, '/')
+        path = path[1:prevind(path, end)]
+    end
+    path = abspath(path)
+    for entry in list(trashdir(path))
+        entry.path == path && push!(entries, entry)
+    end
+    entries
+end
+
+"""
     empty()
 
 Empty the user trash.
