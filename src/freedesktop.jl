@@ -6,6 +6,7 @@
 const RFC3339 = dateformat"yyyy-mm-dd\THH:MM:SS"
 
 function trash(path::String; force::Bool=false)
+    path = abspath(path)
     ispath(path) || (force && return) || throw(Base.IOError("trash($(sprint(show, path))) no such file or directory (ENOENT)", -Base.Libc.ENOENT))
     # Strip the trailing `/` from directories if needed
     if endswith(path, '/')
@@ -97,7 +98,7 @@ function untrash(entry::TrashFile, dest::String = entry.path; force::Bool=false,
 end
 
 function trashdir(path::String)
-    mountroot = mountof(path)
+    mountroot = mountof(abspath(path))
     # Quick check if the user trash directory is best
     startswith(homedir(), mountroot) && return trashdir()
     # See if the devise has a `.Trash/`
