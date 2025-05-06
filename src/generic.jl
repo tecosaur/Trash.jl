@@ -114,7 +114,13 @@ Return the trash directory used for `path`.
 """
     list() -> Vector{TrashFile}
 
-List all entries currently in the user's trash.
+List all entries current in an accessible trash directory.
+
+This searches the system for trash directories on local, mounted, writable
+filesystems (including removable drives) and combines results into a single
+list.
+
+Filesystems that are network-based (e.g. NFS, SMB, or SSHFS) are skipped.
 
 See also: [`trash`](@ref), [`untrash`](@ref).
 """
