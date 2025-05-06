@@ -52,7 +52,10 @@ function list(trashdir::String)
     entries
 end
 
-list() = list(trashdir())
+function list()
+    trashes = unique!(map(trashdir, physicalvolumes()))
+    mapreduce(list, append!, trashes, init=TrashFile[])
+end
 
 function empty(trashdir::String)
     infodir, filesdir = joinpath(trashdir, "info"), joinpath(trashdir, "files")
@@ -205,6 +208,80 @@ function diskusage(path::String)
     else
         0
     end
+end
+
+const NETWORK_FILESYSTEMS =
+    ("9p", "afs", "beegfs", "ceph", "cifs", "coda", "davfs", "ipfs",
+     "glusterfs", "lustre", "moosefs", "nfs", "nfs4", "orangefs", "smbfs",
+     "sshfs", "vboxsf", "virtiofs")
+
+const SKIP_VOLUMES = ("/dev", "/proc", "/sys", "/usr", "/var", "/boot")
+
+const FUSE_ALLOWED = ("fuse.apfs", "fuse.bindfs", "fuse.cryfs", "fuse.exfat",
+                      "fuse.encfs", "fuse.gocryptfs", "fuse.securefs", "fuse.unionfs")
+
+"""
+    physicalvolumes() -> Vector{String}
+
+List all accessible physical volumes on the system.
+"""
+function physicalvolumes()
+    volumes = String[]
+    nodevfs = nodevfilesystems()
+    for mount in readmounts()
+        mount.fstype ∈ nodevfs && continue
+        mount.fstype ∈ NETWORK_FILESYSTEMS && continue
+        startswith(mount.fstype, "fuse.") && mount.fstype ∉ FUSE_ALLOWED && continue
+        any(Base.Fix1(startswith, mount.dir), SKIP_VOLUMES) && continue
+        ismountedwritable(mount.dir) || continue
+        isreadable(mount.dir) || continue
+        push!(volumes, mount.dir)
+    end
+    volumes
+end
+
+function nodevfilesystems()
+    names = String[]
+    for line in eachline("/proc/filesystems")
+        fields = split(line)
+        length(fields) == 2 || continue
+        name, type = fields
+        name == "nodev" && push!(names, type)
+    end
+    names
+end
+
+"""
+    readmounts() -> Vector{NamedTuple{...}}
+
+Read the `/proc/self/mounts` file and return a list of mount specs.
+
+Each mount spec is represented as a named tuple of `SubString{String}` fields,
+with names: `dev`, `dir`, `fstype`, `opts`, `freq`, and `pass`.
+"""
+function readmounts()
+    MountInfo = @NamedTuple{dev::SubString{String}, dir::SubString{String}, fstype::SubString{String}, opts::SubString{String}, freq::SubString{String}, pass::SubString{String}}
+    mounts = MountInfo[]
+    for line in eachline("/proc/self/mounts")
+        fields = split(line)
+        length(fields) == 6 || continue
+        dev, dir, fstype, opts, freq, pass = fields
+        push!(mounts, (; dev, dir, fstype, opts, freq, pass))
+    end
+    mounts
+end
+
+"""
+    ismountedwritable(volume::AbstractString)
+
+Check if the volume at `volume` is mounted and writable, according to `statvfs`.
+"""
+function ismountedwritable(volume::AbstractString)
+    st = Ref{NTuple{11, Culong}}()
+    if 0 != @ccall statvfs(volume::Cstring, st::Ptr{NTuple{11, Culong}})::Cint
+        return false
+    end
+    st[][10] & 0x1 == 0 # No read-only flag
 end
 
 """

@@ -466,7 +466,7 @@ trashdir() = trashdir(homedir())
 
 function list(trashdir::String)
     entries = TrashFile[]
-    isdir(trashdir) || return entries
+    try isdir(trashdir) catch; false end || return entries
     for path in readdir(trashdir, join=true)
         startswith(basename(path), "\$R") || continue
         mdatafile = metadatafile(path)
@@ -477,7 +477,10 @@ function list(trashdir::String)
     entries
 end
 
-list() = list(trashdir())
+function list()
+    trashes = unique!(map(trashdir, physicaldrives()))
+    mapreduce(list, append!, trashes, init=TrashFile[])
+end
 
 function empty(trashdir::String)
     rm(trashdir, force=true, recursive=true)
@@ -562,4 +565,21 @@ function parsemetadata(file::String)
             (; filename = fname, filesize = fsize, dtime = nt2datetime(dtimewin))
         end
     end
+end
+
+"""
+    physicaldrives() -> Vector{String}
+
+List all available physical drives on the system.
+"""
+function physicaldrives()
+    mask = ccall((:GetLogicalDrives, "kernel32"), stdcall, UInt32, ())
+    drives = String[]
+    for (i, char) in zip(0:25, 'A':'Z')
+        mask & (1 << i) != 0 || continue
+        drive = char * ":\\"
+        dtype = ccall((:GetDriveTypeW, "kernel32"), stdcall, UInt32, (Ptr{UInt16},), pointer(utf16nul(drive)))
+        dtype ∈ (2, 3) && push!(drives, drive) # 2 = removable, 3 = fixed
+    end
+    drives
 end

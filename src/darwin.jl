@@ -416,7 +416,10 @@ function list(trashdir::String)
     entries
 end
 
-list() = list(trashdir())
+function list()
+    trashes = unique!(map(trashdir, physicalvolumes()))
+    mapreduce(list, append!, trashes, init=TrashFile[])
+end
 
 function empty(trashdir::String)
     dsstorefile = joinpath(trashdir, ".DS_Store")
@@ -457,3 +460,49 @@ function trashdir(path::String)
 end
 
 trashdir() = trashdir(homedir())
+
+
+# Helper functions
+
+"""
+    physicalvolumes() -> Vector{String}
+
+List all accessible physical volumes on the system.
+"""
+function physicalvolumes()
+    localkey = ObjC.nsstring("NSURLVolumeIsLocalKey")
+    readonlykey = ObjC.nsstring("NSURLVolumeIsReadOnlyKey")
+    browsablekey = ObjC.nsstring("NSURLVolumeIsBrowsableKey")
+    keyvec = [localkey, readonlykey, browsablekey]
+    keysptr = GC.@preserve keyvec @ccall objc_msgSend(
+            ObjC.class("NSArray")::Ptr{Cvoid}, ObjC.selector("arrayWithObjects:count:")::Ptr{Cvoid},
+            pointer(keyvec)::Ptr{Ptr{Cvoid}}, length(keyvec)::Csize_t)::Ptr{Cvoid}
+    @ccall objc_retain(keysptr::Ptr{Cvoid})::Ptr{Cvoid}
+    mountedsel = ObjC.selector("mountedVolumeURLsIncludingResourceValuesForKeys:options:")
+    vols = @ccall objc_msgSend(ObjC.filemanager()::Ptr{Cvoid}, mountedsel::Ptr{Cvoid},
+                               keysptr::Ptr{Cvoid}, 1::Culong)::Ptr{Cvoid}
+    @ccall objc_retain(vols::Ptr{Cvoid})::Ptr{Cvoid}
+    nvols = if vols != C_NULL
+        @ccall objc_msgSend(vols::Ptr{Cvoid}, ObjC.selector("count")::Ptr{Cvoid})::Csize_t
+    else Csize_t(0) end
+    volnames = String[]
+    for i in 1:nvols
+        volurl = @ccall objc_msgSend(vols::Ptr{Cvoid}, ObjC.selector("objectAtIndex:")::Ptr{Cvoid}, (i - 1)::Csize_t)::Ptr{Cvoid}
+        volkeys = @ccall objc_msgSend(volurl::Ptr{Cvoid}, ObjC.selector("resourceValuesForKeys:error:")::Ptr{Cvoid}, keysptr::Ptr{Cvoid}, C_NULL::Ptr{Cvoid})::Ptr{Cvoid}
+        volkeys == C_NULL && continue
+        vollocal = @ccall objc_msgSend(volkeys::Ptr{Cvoid}, ObjC.selector("objectForKey:")::Ptr{Cvoid}, localkey::Ptr{Cvoid})::Ptr{Cvoid}
+        islocal = @ccall objc_msgSend(vollocal::Ptr{Cvoid}, ObjC.selector("boolValue")::Ptr{Cvoid})::Bool
+        islocal || continue
+        volreadonly = @ccall objc_msgSend(volkeys::Ptr{Cvoid}, ObjC.selector("objectForKey:")::Ptr{Cvoid}, readonlykey::Ptr{Cvoid})::Ptr{Cvoid}
+        isreadonly = @ccall objc_msgSend(volreadonly::Ptr{Cvoid}, ObjC.selector("boolValue")::Ptr{Cvoid})::Bool
+        !isreadonly || continue
+        volbrowsable = @ccall objc_msgSend(volkeys::Ptr{Cvoid}, ObjC.selector("objectForKey:")::Ptr{Cvoid}, browsablekey::Ptr{Cvoid})::Ptr{Cvoid}
+        isbrowsable = @ccall objc_msgSend(volbrowsable::Ptr{Cvoid}, ObjC.selector("boolValue")::Ptr{Cvoid})::Bool
+        isbrowsable || continue
+        volname = @ccall objc_msgSend(volurl::Ptr{Cvoid}, ObjC.selector("path")::Ptr{Cvoid})::Ptr{Cvoid}
+        push!(volnames, ObjC.ns2string(volname))
+    end
+    @ccall objc_release(keysptr::Ptr{Cvoid})::Ptr{Cvoid}
+    @ccall objc_release(vols::Ptr{Cvoid})::Ptr{Cvoid}
+    volnames
+end
