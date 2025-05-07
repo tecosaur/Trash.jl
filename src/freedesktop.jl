@@ -13,8 +13,8 @@ function trash(path::String; force::Bool=false)
     if endswith(path, '/')
         path = path[1:prevind(path, end)]
     end
-    # Determine the relevant paths
-    tdir = trashdir(path)
+    # Determine and create the relevant paths
+    tdir = mkpath(trashdir(path))
     filesdir, infodir = joinpath(tdir, "files"), joinpath(tdir, "info")
     isdir(filesdir) || mkdir(filesdir)
     isdir(infodir) || mkdir(infodir)
@@ -93,7 +93,7 @@ function untrash(entry::TrashFile, dest::String = entry.path; force::Bool=false,
         for line in eachline(dirsizes)
             if sum(==(' '), line) >= 3
                 size, mtime, path_esc = split(line, ' ', limit=3)
-                path = rfc2396_unescape(path_esc)
+                path = rfc2396_unescape(String(path_esc))
                 path != dest && println(io, line)
             end
         end
@@ -110,19 +110,19 @@ function trashdir(path::String)
     mounttrash = joinpath(mountroot, ".Trash")
     if isdir(mounttrash) && issticky(mounttrash) && !islink(mounttrash)
         # Since it exists and is valid, try the user-specific subdirectory
-        mounttrash = joinpath(mounttrash, string(Base.Libc.getuid()))
-        (isdir(mounttrash) || try mkdir(mounttrash); true catch _ false end) &&
-            return mounttrash
+        usertrash = joinpath(mounttrash, string(Base.Libc.getuid()))
+        (isdir(usertrash) || iswritable(mounttrash) && isexecutable(mounttrash)) &&
+            return usertrash
     end
     # Fall back to `.Trash-$UID/`
     mounttrash = joinpath(mountroot, ".Trash-" * string(Base.Libc.getuid()))
-    (isdir(mounttrash) || try mkdir(mounttrash); true catch _ false end) &&
+    (isdir(mounttrash) || iswritable(mountroot) && isexecutable(mountroot)) &&
         return mounttrash
     # Worst case, use the home trash anyway
     trashdir()
 end
 
-trashdir() = joinpath(get(ENV, "XDG_DATA_HOME", joinpath(homedir(), "~/.local/share")), "Trash")
+trashdir() = joinpath(get(ENV, "XDG_DATA_HOME", joinpath(homedir(), ".local/share")), "Trash")
 
 
 # Helper functions
@@ -292,10 +292,10 @@ Escape `str` according to [RFC2396](http://www.faqs.org/rfcs/rfc2396.html).
 function rfc2396_escape(s::String)
     replace(s, '%' => "%25", # % itself
             # Control characters
-            '\0'   => "%0", '\x01'  => "%1", '\x02'  => "%2", '\x03'  => "%3",
-            '\x04' => "%4", '\x05'  => "%5", '\x06'  => "%6", '\a'    => "%7",
-            '\b'   => "%8", '\t'    => "%9", '\n'    => "%a", '\v'    => "%b",
-            '\f'   => "%c", '\r'    => "%d", '\x0e'  => "%e", '\x0f'  => "%f",
+            '\0'   => "%00", '\x01' => "%01", '\x02' => "%02", '\x03' => "%03",
+            '\x04' => "%04", '\x05' => "%05", '\x06' => "%06", '\a'   => "%07",
+            '\b'   => "%08", '\t'   => "%09", '\n'   => "%0a", '\v'   => "%0b",
+            '\f'   => "%0c", '\r'   => "%0d", '\x0e' => "%0e", '\x0f' => "%0f",
             '\x10' => "%10", '\x11' => "%11", '\x12' => "%12", '\x13' => "%13",
             '\x14' => "%14", '\x15' => "%15", '\x16' => "%16", '\x17' => "%17",
             '\x18' => "%18", '\x19' => "%19", '\x1a' => "%1a", '\e'   => "%1b",

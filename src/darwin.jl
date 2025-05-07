@@ -69,12 +69,6 @@ module DSStoreParser
 
 const MAGIC_BYTES = Tuple(codeunits("\0\0\0\1Bud1"))
 
-const ByteVec = @static if VERSION >= v"1.11"
-    Memory{UInt8}
-else
-    Vector{UInt8}
-end
-
 struct DSHeader
     offsets::Vector{UInt32}
     startblock::UInt32
@@ -86,19 +80,19 @@ end
 struct DSStore{I<:IO}
     io::I
     header::DSHeader
-    buf::ByteVec
+    buf::Vector{UInt8}
 end
 
 # DSStore header parsing
 
 function DSStore(io::IO)
     header = DSHeader(io)
-    DSStore(io, header, ByteVec(undef, 4))
+    DSStore(io, header, Vector{UInt8}(undef, 4))
 end
 
 function DSHeader(io::IO)
     seekstart(io)
-    buf = ByteVec(undef, max(sizeof(UInt32), length(MAGIC_BYTES)))
+    buf = Vector{UInt8}(undef, max(sizeof(UInt32), length(MAGIC_BYTES)))
     hdr = readheader(io, buf)
     isnothing(hdr) && throw(ArgumentError("Invalid DSStore file, missing header"))
     seek(io, hdr.offset + 0x4)
@@ -169,6 +163,7 @@ end
 
 function readdsdb(io::IO, buf::DenseVector{UInt8})
     ntocs = tryread(UInt32, io, buf)
+    isnothing(ntocs) && return
     # toc = Dict{String, UInt32}()
     for _ in 1:ntocs
         namelen = tryread(UInt8, io, buf)
@@ -206,7 +201,7 @@ struct Record
     filename::String
     kind::Symbol
     dtype::Symbol
-    data::ByteVec
+    data::Vector{UInt8}
 end
 
 Base.eltype(::Type{<:DSStore}) = Record
@@ -296,7 +291,7 @@ function Record(io::IO, buf::DenseVector{UInt8})
     kind = Symbol(String(buf[1:4]))
     # Data
     dinfo = recdata(io, buf)
-    data = ByteVec(undef, dinfo.nbytes)
+    data = Vector{UInt8}(undef, dinfo.nbytes)
     readbytes!(io, data, dinfo.nbytes) == dinfo.nbytes ||
         throw(ArgumentError("Invalid DSStore record, missing data"))
     Record(filename, kind, dinfo.type, data)
