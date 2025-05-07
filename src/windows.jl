@@ -428,11 +428,17 @@ function trash(path::String; force::Bool=false)::Union{TrashFile, Nothing}
     isnothing(sink.error) || throw(sink.error) # Rethrow any error captured in the sink
     isempty(sink.recyclepath) &&
         throw(TrashSystemError("PostDeleteItem", "Failed to capture paths, recycle path is NULL. Item might not have been recycled?"))
-    mdata = parsemetadata(metadatafile(sink.recyclepath))
-    dtime = if isnothing(mdata)
-        now(UTC)
-    else
-        mdata.dtime
+    dtime = let mfile = metadatafile(sink.recyclepath)
+        if !isnothing(mfile)
+            mdata = parsemetadata(mfile)
+            if !isnothing(mdata)
+                mdata.dtime
+            else
+                now(UTC)
+            end
+        else
+            now(UTC)
+        end
     end
     TrashFile(sink.recyclepath, path, dtime)
 end
@@ -470,8 +476,10 @@ function list(trashdir::String)
     for path in readdir(trashdir, join=true)
         startswith(basename(path), "\$R") || continue
         mdatafile = metadatafile(path)
+        isnothing(mdatafile) && continue
         isfile(mdatafile) || continue
         info = parsemetadata(mdatafile)
+        isnothing(info) && continue
         push!(entries, TrashFile(path, info.filename, info.dtime))
     end
     entries
@@ -510,7 +518,7 @@ function metadatafile(trashfile::String)
     infofile = if nr == 1
         replace(trashfile, "\$R" => "\$I")
     else
-        tr = findlast("\$R", trashfile)
+        tr = findlast("\$R", trashfile)::UnitRange{Int}
         trashfile[1:first(tr)-1] * "\$I" * trashfile[last(tr)+1:end]
     end
     isfile(infofile) || return

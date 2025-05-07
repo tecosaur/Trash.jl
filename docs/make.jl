@@ -14,6 +14,11 @@ for orgfile in orgfiles
         m -> write(mdfile, m)
 end
 
+let indexfile = joinpath(@__DIR__, "src", "index.md")
+    index = read(indexfile, String)
+    write(indexfile, replace(index, "DS<sub>Store</sub>"=> "DS\\_Store"))
+end
+
 makedocs(;
     modules=[Trash],
     format=Documenter.HTML(;

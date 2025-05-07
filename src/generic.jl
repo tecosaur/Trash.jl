@@ -60,7 +60,7 @@ end
 
 @static if Sys.iswindows()
     TrashSystemError(callname::String) =
-        TrashSystemError(callname, nothing, Base.Libc.GetLastEror())
+        TrashSystemError(callname, nothing, Base.Libc.GetLastError())
 else
     TrashSystemError(callname::String) =
         TrashSystemError(callname, nothing, Base.Libc.errno())
@@ -75,7 +75,7 @@ function Base.showerror(io::IO, ex::TrashSystemError)
         msg = @static if Sys.iswindows()
             Base.Libc.FormatMessage(ex.code % UInt32)
         else
-            Base.libc.strerror(ex.code)
+            Base.Libc.strerror(ex.code)
         end
     end
     print(io, "TrashSystemError")
@@ -193,9 +193,9 @@ function untrash(path::String, dest::String=path;
     elseif length(candidates) == 1
         first(candidates)
     elseif pick === :newest
-        first(findmax(e -> e.dtime, candidates))
+        argmax(e -> e.dtime, candidates)
     elseif pick === :oldest
-        first(findmin(e -> e.dtime, candidates))
+        argmin(e -> e.dtime, candidates)
     elseif pick === :only
         throw(ArgumentError("Multiple $(length(candidates)) trash candidates for $(sprint(show, path)), please use `pick=:newest` or `pick=:oldest` to select one."))
     else
