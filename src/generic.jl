@@ -85,6 +85,43 @@ function Base.showerror(io::IO, ex::TrashSystemError)
     nothing
 end
 
+struct TrashAmbiguity <: Exception
+    candidates::Vector{TrashFile}
+end
+
+function Base.showerror(io::IO, ex::TrashAmbiguity)
+    println(io, "TrashAmbiguity: ", length(ex.candidates), " candidates found")
+    for cand in sort(ex.candidates, by = x -> x.dtime)
+        print(io, "  • ", basename(cand.path))
+        if isdir(cand.trashfile)
+            print(io, Base.Filesystem.path_separator)
+        end
+        if isdir(cand.trashfile)
+            printstyled(io, " (", length(readdir(cand.trashfile)), " items)", color=:light_cyan)
+        else
+            printstyled(io, " (", Base.format_bytes(filesize(cand.trashfile)), ")", color=:light_cyan)
+        end
+        printstyled(io, " @ ", cand.dtime, color=:light_black)
+        println(io)
+    end
+    print(io, "\n Use ")
+    printstyled(io, "untrash", color=:blue)
+    print(io, '(')
+    printstyled(io, "...", color=:light_black)
+    print(io, "; ")
+    printstyled(io, "pick", color=:yellow)
+    printstyled(io, " = ", color=:light_red)
+    printstyled(io, ":newest", color=:magenta)
+    printstyled(io, " or ", color=:light_black)
+    printstyled(io, ":oldest", color=:magenta)
+    print(io, ") to select one of the candidates,")
+    print(io, "\n or manually filter the list of candidates from ")
+    printstyled(io, "Trash.list", color=:blue)
+    print(io, " or ")
+    printstyled(io, "Trash.search", color=:blue)
+    println(io, " yourself.")
+end
+
 
 # Trash backend API
 
@@ -233,7 +270,7 @@ function untrash(path::String, dest::String=path;
     elseif pick === :oldest
         argmin(e -> e.dtime, candidates)
     elseif pick === :only
-        throw(ArgumentError("Multiple $(length(candidates)) trash candidates for $(sprint(show, path)), please use `pick=:newest` or `pick=:oldest` to select one."))
+        throw(TrashAmbiguity(candidates))
     else
         throw(ArgumentError("Invalid `pick` option: $(sprint(show, pick)). Use `:newest`, `:oldest` or `:only`."))
     end
