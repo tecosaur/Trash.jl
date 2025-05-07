@@ -24,6 +24,18 @@ elseif Sys.iswindows()
     :nt
 end
 
+precompile(trash, (String,))
+precompile(untrash, (TrashFile,))
+precompile(untrash, (String,))
+precompile(list, ())
+precompile(list, (String,))
+precompile(search, (String,))
+precompile(trashdir, ())
+precompile(trashdir, (String,))
+precompile(trashes, ())
+precompile(empty, ())
+precompile(empty, (String,))
+
 @doc """
     Trash
 
