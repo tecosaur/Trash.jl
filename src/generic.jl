@@ -88,22 +88,24 @@ end
 
 # Trash backend API
 
-"""
+function trash end
+
+@doc """
     trash(path::String; force::Bool=false)
 
 Put the file, link, or empty directory in the system trash. If `force=true` is
 passed, a non-existing path is not treated as an error.
 
 See also: [`Trash.list`](@ref), [`untrash`](@ref).
-"""
-function trash end
+""" trash(::String; force::Bool=false)
 
-"""
+function trashdir end
+
+@doc """
     trashdir() -> String
 
 Return the general trash directory for the current user.
-"""
-function trashdir end
+""" trashdir()
 
 @doc """
     trashdir(path::String) -> String
@@ -111,7 +113,17 @@ function trashdir end
 Return the trash directory used for `path`.
 """ trashdir(::String)
 
-"""
+function trashes end
+
+@doc """
+    trashes() -> Vector{String}
+
+Return a list of all trash directories on the system.
+""" trashes()
+
+function list end
+
+@doc """
     list() -> Vector{TrashFile}
 
 List all entries current in an accessible trash directory.
@@ -123,8 +135,7 @@ list.
 Filesystems that are network-based (e.g. NFS, SMB, or SSHFS) are skipped.
 
 See also: [`trash`](@ref), [`untrash`](@ref).
-"""
-function list end
+""" list()
 
 @doc """
     list(trashdir::String) -> Vector{TrashFile}
@@ -134,7 +145,9 @@ List all entries currently in the trash directory `trashdir`.
 See also: [`trashdir`](@ref), [`search`](@ref).
 """ list(::String)
 
-"""
+function untrash end
+
+@doc """
     untrash(entry::TrashFile, dest::String = original path;
             force::Bool = false, rm::Bool = false)
 
@@ -147,28 +160,19 @@ If `force` is `true`, any existing file at the destination will be trashed,
 and if `rm` is `true`, the file will be removed with `Base.rm`.
 
 See also: [`trash`](@ref), [`Trash.list`](@ref).
-"""
-function untrash end
+""" untrash(::TrashFile, ::String; force::Bool, rm::Bool)
 
-"""
-    empty()
-
-Empty the user trash.
-
-See also: [`trash`](@ref), [`Trash.list`](@ref).
-"""
-function empty end
+function search end
 
 @doc """
-    empty(trashdir::String)
+    search(path::String) -> Vector{TrashFile}
 
-Empty the trash directory `trashdir`.
-""" empty(::String)
+Search for `path` entries in the trash.
 
-
-# Generic implementations
+This is a minor convenience function on top of [`list`](@ref), which see.
+""" search(::String)
 
-"""
+@doc """
     untrash(path::String, dest::String = path; pick::Symbol = :only,
             force::Bool = false, rm::Bool = false)
 
@@ -183,7 +187,39 @@ chosen based on the `pick` option. The default is `:only`, which will throw an
 `:oldest`, which will select the most recent or oldest entry, respectively.
 
 The `force` and `rm` options are passed through to the `untrash(::TrashFile)` function.
-"""
+""" untrash(::String, ::String; pick::Symbol, force::Bool, rm::Bool)
+
+function empty end
+
+@doc """
+    empty()
+
+Empty the user trash.
+
+See also: [`trash`](@ref), [`Trash.list`](@ref).
+""" empty()
+
+@doc """
+    empty(trashdir::String)
+
+Empty the trash directory `trashdir`.
+""" empty(::String)
+
+function localvolumes end
+
+@doc """
+    localvolumes() -> Vector{String}
+
+List all accessible local (physical) volumes on the system.
+""" localvolumes()
+
+
+# Generic implementations
+
+trashes() = filter(isdir, unique!(map(trashdir, localvolumes())))
+
+list() = mapreduce(list, append!, trashes(), init=TrashFile[])
+
 function untrash(path::String, dest::String=path;
                  force::Bool=false, rm::Bool=false, pick::Symbol = :only)
     path = abspath(path)
@@ -204,13 +240,6 @@ function untrash(path::String, dest::String=path;
     untrash(entry, dest; force, rm)
 end
 
-"""
-    search(path::String) -> Vector{TrashFile}
-
-Search for `path` entries in the trash.
-
-This is a minor convenience function on top of [`list`](@ref), which see.
-"""
 function search(path::String)
     entries = TrashFile[]
     if endswith(path, '/')

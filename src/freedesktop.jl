@@ -52,11 +52,6 @@ function list(trashdir::String)
     entries
 end
 
-function list()
-    trashes = unique!(map(trashdir, physicalvolumes()))
-    mapreduce(list, append!, trashes, init=TrashFile[])
-end
-
 function empty(trashdir::String)
     infodir, filesdir = joinpath(trashdir, "info"), joinpath(trashdir, "files")
     isdir(infodir) && rm(infodir, force=true, recursive=true)
@@ -67,7 +62,12 @@ function empty(trashdir::String)
     nothing
 end
 
-empty() = empty(trashdir())
+function empty()
+    for tdir in trashes()
+        iswritable(tdir) || continue
+        empty(tdir)
+    end
+end
 
 function untrash(entry::TrashFile, dest::String = entry.path; force::Bool=false, rm::Bool=false)
     isfile(entry.trashfile) || throw(TrashFileMissing(entry))
@@ -123,6 +123,21 @@ function trashdir(path::String)
 end
 
 trashdir() = joinpath(get(ENV, "XDG_DATA_HOME", joinpath(homedir(), ".local/share")), "Trash")
+
+function localvolumes()
+    volumes = String[]
+    nodevfs = nodevfilesystems()
+    for mount in readmounts()
+        mount.fstype ∈ nodevfs && continue
+        mount.fstype ∈ NETWORK_FILESYSTEMS && continue
+        startswith(mount.fstype, "fuse.") && mount.fstype ∉ FUSE_ALLOWED && continue
+        any(Base.Fix1(startswith, mount.dir), SKIP_VOLUMES) && continue
+        ismountedwritable(mount.dir) || continue
+        isreadable(mount.dir) || continue
+        push!(volumes, mount.dir)
+    end
+    volumes
+end
 
 
 # Helper functions
@@ -219,26 +234,6 @@ const SKIP_VOLUMES = ("/dev", "/proc", "/sys", "/usr", "/var", "/boot")
 
 const FUSE_ALLOWED = ("fuse.apfs", "fuse.bindfs", "fuse.cryfs", "fuse.exfat",
                       "fuse.encfs", "fuse.gocryptfs", "fuse.securefs", "fuse.unionfs")
-
-"""
-    physicalvolumes() -> Vector{String}
-
-List all accessible physical volumes on the system.
-"""
-function physicalvolumes()
-    volumes = String[]
-    nodevfs = nodevfilesystems()
-    for mount in readmounts()
-        mount.fstype ∈ nodevfs && continue
-        mount.fstype ∈ NETWORK_FILESYSTEMS && continue
-        startswith(mount.fstype, "fuse.") && mount.fstype ∉ FUSE_ALLOWED && continue
-        any(Base.Fix1(startswith, mount.dir), SKIP_VOLUMES) && continue
-        ismountedwritable(mount.dir) || continue
-        isreadable(mount.dir) || continue
-        push!(volumes, mount.dir)
-    end
-    volumes
-end
 
 function nodevfilesystems()
     names = String[]

@@ -485,11 +485,6 @@ function list(trashdir::String)
     entries
 end
 
-function list()
-    trashes = unique!(map(trashdir, physicaldrives()))
-    mapreduce(list, append!, trashes, init=TrashFile[])
-end
-
 function empty(trashdir::String)
     rm(trashdir, force=true, recursive=true)
 end
@@ -501,6 +496,18 @@ function empty()
     if isfailed(hr)
         throw(TrashSystemError("SHEmptyRecycleBinW", nothing, hr))
     end
+end
+
+function localvolumes()
+    mask = ccall((:GetLogicalDrives, "kernel32"), stdcall, UInt32, ())
+    drives = String[]
+    for (i, char) in zip(0:25, 'A':'Z')
+        mask & (1 << i) != 0 || continue
+        drive = char * ":\\"
+        dtype = ccall((:GetDriveTypeW, "kernel32"), stdcall, UInt32, (Ptr{UInt16},), pointer(utf16nul(drive)))
+        dtype ∈ (2, 3) && push!(drives, drive) # 2 = removable, 3 = fixed
+    end
+    drives
 end
 
 
@@ -573,21 +580,4 @@ function parsemetadata(file::String)
             (; filename = fname, filesize = fsize, dtime = nt2datetime(dtimewin))
         end
     end
-end
-
-"""
-    physicaldrives() -> Vector{String}
-
-List all available physical drives on the system.
-"""
-function physicaldrives()
-    mask = ccall((:GetLogicalDrives, "kernel32"), stdcall, UInt32, ())
-    drives = String[]
-    for (i, char) in zip(0:25, 'A':'Z')
-        mask & (1 << i) != 0 || continue
-        drive = char * ":\\"
-        dtype = ccall((:GetDriveTypeW, "kernel32"), stdcall, UInt32, (Ptr{UInt16},), pointer(utf16nul(drive)))
-        dtype ∈ (2, 3) && push!(drives, drive) # 2 = removable, 3 = fixed
-    end
-    drives
 end

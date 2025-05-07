@@ -411,11 +411,6 @@ function list(trashdir::String)
     entries
 end
 
-function list()
-    trashes = unique!(map(trashdir, physicalvolumes()))
-    mapreduce(list, append!, trashes, init=TrashFile[])
-end
-
 function empty(trashdir::String)
     dsstorefile = joinpath(trashdir, ".DS_Store")
     isfile(dsstorefile) || return
@@ -433,7 +428,12 @@ function empty(trashdir::String)
     nothing
 end
 
-empty() = empty(trashdir())
+function empty()
+    for tdir in trashes()
+        iswritable(tdir) || continue
+        empty(tdir)
+    end
+end
 
 const NSTrashDirectory = Clong(102)
 const NSUserDomainMask = Clong(1)
@@ -456,15 +456,7 @@ end
 
 trashdir() = trashdir(homedir())
 
-
-# Helper functions
-
-"""
-    physicalvolumes() -> Vector{String}
-
-List all accessible physical volumes on the system.
-"""
-function physicalvolumes()
+function localvolumes()
     localkey = ObjC.nsstring("NSURLVolumeIsLocalKey")
     readonlykey = ObjC.nsstring("NSURLVolumeIsReadOnlyKey")
     browsablekey = ObjC.nsstring("NSURLVolumeIsBrowsableKey")
