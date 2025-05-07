@@ -58,7 +58,9 @@ julia> read("demofile", String)
 Trash.trash
 Trash.untrash
 Trash.trashdir
+Trash.trashes
 Trash.list
+Trash.search
 Trash.empty
 #+end_src
 
