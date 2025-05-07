@@ -1,6 +1,6 @@
 name = "Trash"
 uuid = "2177afbf-83db-417c-8225-ea8191cd3f0f"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["TEC <git@tecosaur.net>"]
 
 [deps]
@@ -8,3 +8,4 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 
 [compat]
 Dates = "1"
+julia = "1.7"

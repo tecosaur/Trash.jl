@@ -1,8 +1,11 @@
 #+title: Trash.jl
 #+author: tecosaur
 
+#+html: <a href="https://tecosaur.net"><img src="https://img.shields.io/badge/%F0%9F%A6%95-tec-27a560.svg"></a>
+#+html: <a href="https://tecosaur.github.io/Trash.jl/stable/"><img src="https://img.shields.io/badge/docs-stable-blue.svg"></a>
 #+html: <a href="https://tecosaur.github.io/Trash.jl/dev/"><img src="https://img.shields.io/badge/docs-dev-blue.svg"></a>
-#+html: <a href="https://www.mozilla.org/en-US/MPL/2.0/"><img src="https://img.shields.io/badge/license-MPL%202.0-teal.svg"></a>
+#+html: <a href="https://www.tldrlegal.com/license/mozilla-public-license-2-0-mpl-2"><img src="https://img.shields.io/badge/license-MPL%202.0-teal.svg"></a>
+#+html: <a href="https://liberapay.com/tec"><img src="https://shields.io/badge/support%20my%20efforts-f6c915?logo=Liberapay&logoColor=black"></a>
 
 A cross-platform and standard-compliant library for safe, recoverable file
 deletion. Move files and directories to your system's trash rather than deleting
