@@ -23,6 +23,11 @@ jobs:
         with:
           version: '1'
       - uses: julia-actions/cache@v2
+      - name: Documenter kludge
+        run: |
+          ex -s -c '%s/^\(function\s\+\)\(\w\+\)\(\s\+end\)$/\1\2()\3/g' -c 'wq' src/generic.jl
+          ex -s -c '%s/@doc\s*\(\"\"\"\s\{-\}\_.\{-1,}\"\"\"\)[ ]\(\w\{-1,}(::\w\{-\})\)/\1\rfunction \2 end/g' -c 'wq' src/generic.jl
+          sed -i 's/include("freedesktop.jl")/#/' src/Trash.jl
       - name: Install dependencies
         run: julia --project=docs/ -e 'using Pkg; Pkg.instantiate()'
       - name: Build and deploy
