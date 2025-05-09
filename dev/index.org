@@ -11,3 +11,21 @@ cross-platform trash libraries floating around. Most of these only provide the
 ability to send a file to the trash, but Trash.jl goes further, giving you the
 ability to restore items with [[@ref][~untrash~]], inspect the contents of the trash with
 [[@ref][~list~]], and delete the trash with [[@ref][~empty~]].
+
+* Comparison with existing libraries
+
+| Library    | Language   | Library/CLI | Platforms | Trash | Untrash | List | Empty |
+|------------+------------+-------------+-----------+-------+---------+------+-------|
+| Trash.jl   | Julia      | 📚          | 🐧 🍏 🪟   | ✅️️    | ✅️      | ✅️   | ✅️    |
+| [[https://github.com/Byron/trash-rs][trash-rs]]   | Rust       | 📚          | 🐧 🍏 🪟   | ✅️    | ❌      | ❌   | ❌    |
+| [[https://github.com/arsenetar/send2trash][send2trash]] | Python     | 📚          | 🐧 🍏 🪟   | ✅️    | ❌      | ❌   | ❌    |
+| [[https://github.com/sindresorhus/trash][trash]]      | JavaScript | 📚          | 🐧 🍏 🪟   | ✅️    | ❌      | ❌   | ❌    |
+| [[https://github.com/sindresorhus/trash-cli][trash-cli]]  | JavaScript | 🐚          | 🐧 🍏 🪟   | ✅️    | ❌      | ❌   | ❌    |
+| [[https://github.com/laurent22/go-trash][go-trash]]   | Go         | 📚          | 🐧 🍏 🪟   | ✅️    | ❌      | ❌   | ❌    |
+| [[https://docs.gtk.org/gio/method.File.trash.html][GIO]]        | C          | 📚          | 🐧 〰️️ 〰️️   | ✅️    | ❌      | ❌   | ❌    |
+| [[https://api.kde.org/frameworks/kio/html/classKIO_1_1DeleteOrTrashJob.html][KIO]]        | C++        | 📚          | 🐧 〰️️ 〰️️   | ✅️    | ❌      | ❌   | ✅️    |
+| [[https://github.com/andreafrancia/trash-cli][trash-cli]]  | Python     | 🐚          | 🐧 〰️️ 〰️️   | ✅️    | ✅️      | ✅️   | ✅️    |
+| [[https://github.com/rushsteve1/trash-d][trash-d]]    | D          | 🐚          | 🐧 〰️️ 〰️️   | ✅️    | ✅️      | ✅️   | ✅️    |
+| [[https://github.com/tjguk/winshell][winshell]]   | Python     | 📚          | 〰️️ 〰️️ 🪟   | ✅️    | ✅️      | ✅️   | ✅️    |
+| [[https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shfileoperationw][win32]]      | C          | 📚          | 〰️️ 〰️️ 🪟   | ✅️    | ❌      | ❌   | ✅️    |
+| [[https://developer.apple.com/documentation/foundation/filemanager/trashitem(at:resultingitemurl:)?language=objc][Foundation]] | ObjC/Swift | 📚          | 〰️️ 🍏 〰️️   | ✅️    | ❌      | ❌   | ❌    |
