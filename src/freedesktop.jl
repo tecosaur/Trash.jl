@@ -124,19 +124,37 @@ end
 
 trashdir() = joinpath(get(ENV, "XDG_DATA_HOME", joinpath(homedir(), ".local/share")), "Trash")
 
-function localvolumes()
-    volumes = String[]
-    nodevfs = nodevfilesystems()
-    for mount in readmounts()
-        mount.fstype ∈ nodevfs && continue
-        mount.fstype ∈ NETWORK_FILESYSTEMS && continue
-        startswith(mount.fstype, "fuse.") && mount.fstype ∉ FUSE_ALLOWED && continue
-        any(Base.Fix1(startswith, mount.dir), SKIP_VOLUMES) && continue
-        ismountedwritable(mount.dir) || continue
-        isreadable(mount.dir) || continue
-        push!(volumes, mount.dir)
+@static if Sys.islinux()
+    function localvolumes()
+        volumes = String[]
+        nodevfs = nodevfilesystems()
+        for mount in readmounts()
+            mount.fstype ∈ nodevfs && continue
+            mount.fstype ∈ NETWORK_FILESYSTEMS && continue
+            startswith(mount.fstype, "fuse.") && mount.fstype ∉ FUSE_ALLOWED && continue
+            any(Base.Fix1(startswith, mount.dir), SKIP_VOLUMES) && continue
+            ismountedwritable(mount.dir) || continue
+            isreadable(mount.dir) || continue
+            push!(volumes, mount.dir)
+        end
+        homemount = mountof(homedir())
+        if homemount ∉ volumes # e.g. if network home
+            push!(volumes, homemount)
+        end
+        volumes
     end
-    volumes
+else
+    function localvolumes()
+        volumes = String[]
+        for mount in readmounts()
+            startswith(mount.dev, "/") && push!(volumes, mount.dir)
+        end
+        homemount = mountof(homedir())
+        if homemount ∉ volumes # e.g. if network home
+            push!(volumes, homemount)
+        end
+        volumes
+    end
 end
 
 
@@ -225,27 +243,6 @@ function diskusage(path::String)
     end
 end
 
-const NETWORK_FILESYSTEMS =
-    ("9p", "afs", "beegfs", "ceph", "cifs", "coda", "davfs", "ipfs",
-     "glusterfs", "lustre", "moosefs", "nfs", "nfs4", "orangefs", "smbfs",
-     "sshfs", "vboxsf", "virtiofs")
-
-const SKIP_VOLUMES = ("/dev", "/proc", "/sys", "/usr", "/var", "/boot")
-
-const FUSE_ALLOWED = ("fuse.apfs", "fuse.bindfs", "fuse.cryfs", "fuse.exfat",
-                      "fuse.encfs", "fuse.gocryptfs", "fuse.securefs", "fuse.unionfs")
-
-function nodevfilesystems()
-    names = String[]
-    for line in eachline("/proc/filesystems")
-        fields = split(line)
-        length(fields) == 2 || continue
-        name, type = fields
-        name == "nodev" && push!(names, type)
-    end
-    names
-end
-
 """
     readmounts() -> Vector{NamedTuple{...}}
 
@@ -254,29 +251,120 @@ Read the `/proc/self/mounts` file and return a list of mount specs.
 Each mount spec is represented as a named tuple of `SubString{String}` fields,
 with names: `dev`, `dir`, `fstype`, `opts`, `freq`, and `pass`.
 """
-function readmounts()
-    MountInfo = @NamedTuple{dev::SubString{String}, dir::SubString{String}, fstype::SubString{String}, opts::SubString{String}, freq::SubString{String}, pass::SubString{String}}
-    mounts = MountInfo[]
-    for line in eachline("/proc/self/mounts")
-        fields = split(line)
-        length(fields) == 6 || continue
-        dev, dir, fstype, opts, freq, pass = fields
-        push!(mounts, (; dev, dir, fstype, opts, freq, pass))
-    end
-    mounts
-end
+function readmounts end
 
 """
     ismountedwritable(volume::AbstractString)
 
 Check if the volume at `volume` is mounted and writable, according to `statvfs`.
 """
-function ismountedwritable(volume::AbstractString)
-    st = Ref{NTuple{11, Culong}}()
-    if 0 != @ccall statvfs(volume::Cstring, st::Ptr{NTuple{11, Culong}})::Cint
-        return false
+function ismountedwritable end
+
+@static if Sys.islinux()
+    function readmounts()
+        MountInfo = @NamedTuple{dev::SubString{String}, dir::SubString{String}, fstype::SubString{String}, opts::SubString{String}, freq::SubString{String}, pass::SubString{String}}
+        mounts = MountInfo[]
+        for line in eachline("/proc/self/mounts")
+            fields = split(line)
+            length(fields) == 6 || continue
+            dev, dir, fstype, opts, freq, pass = fields
+            if '\\' in dir
+                dir = SubString(unescape_string(dir))
+            end
+            push!(mounts, (; dev, dir, fstype, opts, freq, pass))
+        end
+        mounts
     end
-    st[][10] & 0x1 == 0 # No read-only flag
+
+    function ismountedwritable(volume::AbstractString)
+        finfo = Ref{NTuple{11, Culong}}()
+        if 0 != @ccall statvfs(volume::Cstring, finfo::Ptr{NTuple{11, Culong}})::Cint
+            return false
+        end
+        finfo[][10] & 0x1 == 0 # No read-only flag
+    end
+
+    const NETWORK_FILESYSTEMS =
+        ("9p", "afs", "beegfs", "ceph", "cifs", "coda", "davfs", "ipfs",
+        "glusterfs", "lustre", "moosefs", "nfs", "nfs4", "orangefs", "smbfs",
+        "sshfs", "vboxsf", "virtiofs")
+
+    const SKIP_VOLUMES = ("/dev", "/proc", "/sys", "/usr", "/var", "/boot")
+
+    const FUSE_ALLOWED = ("fuse.apfs", "fuse.bindfs", "fuse.cryfs", "fuse.exfat",
+                        "fuse.encfs", "fuse.gocryptfs", "fuse.securefs", "fuse.unionfs")
+
+    function nodevfilesystems()
+        names = String[]
+        for line in eachline("/proc/filesystems")
+            fields = split(line)
+            length(fields) == 2 || continue
+            name, type = fields
+            name == "nodev" && push!(names, type)
+        end
+        names
+    end
+elseif Sys.isbsd() && !Sys.isapple()
+    struct Statfs
+        f_version::UInt32
+        f_type::UInt32
+        f_flags::UInt64
+        f_bsize::UInt64
+        f_iosize::UInt64
+        f_blocks::UInt64
+        f_bfree::UInt64
+        f_bavail::Int64
+        f_files::UInt64
+        f_ffree::Int64
+        f_syncwrites::UInt64
+        f_asyncwrites::UInt64
+        f_syncreads::UInt64
+        f_asyncreads::UInt64
+        f_spare::NTuple{10, UInt64}
+        f_namemax::UInt32
+        f_owner::UInt32
+        f_fsid::Tuple{2, UInt32}
+        f_charspare::NTuple{80, UInt8}
+        f_fstypename::NTuple{16, UInt8}
+        f_mntfromname::NTuple{1024, UInt8}
+        f_mntoname::NTuple{1024, UInt8}
+    end
+
+    function readmounts()
+        statoffset(field::Symbol) = fieldoffset(Statfs, findfirst(==(field), fieldnames(Statfs))::Int)
+        MountInfo = @NamedTuple{dev::String, dir::String, fstype::String}
+        mounts = MountInfo[]
+        bufref = Ref{Ptr{Statfs}}()
+        numfs = @ccall getmntinfo(bufref::Ptr{Ptr{Statfs}}, 1::Cint)::Cint # flag = MNT_WAIT
+        numfs > 0 || return mounts
+        for i in 1:numfs
+            fsptr = bufref[] + (i - 1) * sizeof(Statfs)
+            dev = unsafe_string(Ptr{UInt8}(fsptr + statoffset(:f_mntfromname)))
+            dir = unsafe_string(Ptr{UInt8}(fsptr + statoffset(:f_mntoname)))
+            fstype = unsafe_string(Ptr{UInt8}(fsptr + statoffset(:f_fstypename)))
+            push!(mounts, (; dev, dir, fstype))
+        end
+        mounts
+    end
+
+    function ismountedwritable(volume::AbstractString)
+        finfo = Ref{Statfs}()
+        if 0 != @ccall statfs(volume::Cstring, finfo::Ptr{Statfs})::Cint
+            return false
+        end
+        flags = unsafe_load(Ptr{UInt64}(pointer_from_objref(finfo) + 8))
+        flags & 0x1 == 0
+    end
+
+    function statfs(path::String)
+        finfo = Ref{Statfs}()
+        ret = @ccall statfs(path::Cstring, finfo::Ptr{Statfs})::Cint
+        Base.systemerror("statfs", ret != 0)
+        finfo[]
+    end
+else
+    readmounts() = error("readmounts(): Unsupported platform")
+    ismountedwritable(::AbstractString) = error("ismountedwritable(): Unsupported platform")
 end
 
 """
