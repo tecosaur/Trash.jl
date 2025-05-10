@@ -283,23 +283,45 @@ Try to parse the file `infofile` as a `TrashFile`, returning `nothing` if this
 is not possible or valid for any reason.
 """
 function trashinfo(infofile::String)
+    function nextline(io::IO)
+        eof(io) && return
+        line = readline(io)
+        while isempty(line) || first(line) == '#'
+            eof(io) && return
+            line = readline(io)
+        end
+        line
+    end
     # Check basics
     endswith(infofile, ".trashinfo") || return
-    io = open(infofile, "r")
-    readline(io) == "[Trash Info]" || return
-    # Path
-    pathline = readline(io)
-    startswith(pathline, "Path=") || return
-    path = percentdecode(pathline[length("Path=#"):end])
-    isempty(path) && return
-    # Date
-    dateline = readline(io)
-    startswith(dateline, "DeletionDate=") || return
-    date = tryparse(DateTime, dateline[length("DeletionDate=#"):end], ISODateTimeFormat)
-    isnothing(date) && return
+    info = open(infofile) do io
+        hline = nextline(io)
+        isnothing(hline) && return
+        hline == "[Trash Info]" || return
+        # Path
+        pathline = nextline(io)
+        isnothing(pathline) && return
+        startswith(pathline, "Path") || return
+        pathval = strip(chopprefix(pathline, "Path"))
+        !isempty(pathval) && first(pathval) == '=' || return
+        pathval = lstrip(@view pathval[2:end])
+        path = try percentdecode(pathval) catch _ return end
+        isempty(path) && return
+        # Date
+        dateline = nextline(io)
+        isnothing(dateline) && return
+        startswith(dateline, "DeletionDate") || return
+        dateval = strip(chopprefix(dateline, "DeletionDate"))
+        !isempty(dateval) && first(dateval) == '=' || return
+        dateval = lstrip(@view dateval[2:end])
+        date = tryparse(DateTime, dateval, ISODateTimeFormat)
+        isnothing(date) && return
+        (; path, date)
+    end
+    isnothing(info) && return
     trashfile = joinpath(infofile |> dirname |> dirname, "files",
                          chopsuffix(basename(infofile), ".trashinfo"))
-    TrashFile(trashfile, path, date)
+    TrashFile(trashfile, info.path, info.date)
 end
 
 """
