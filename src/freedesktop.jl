@@ -290,7 +290,7 @@ function trashinfo(infofile::String)
     # Path
     pathline = readline(io)
     startswith(pathline, "Path=") || return
-    path = rfc2396_unescape(pathline[length("Path=#"):end])
+    path = percentdecode(pathline[length("Path=#"):end])
     isempty(path) && return
     # Date
     dateline = readline(io)
@@ -482,27 +482,45 @@ function rfc2396_escape(s::String)
 end
 
 """
-    rfc2396_unescape(str::String)
+    percentdecode([io::IO], str::AbstractString)
 
-Unescape `str` according to [RFC2396](http://www.faqs.org/rfcs/rfc2396.html).
+Decode a percent-encoded string `str`.
+
+If `io` is provided, the decoded string is written to it.
 """
-function rfc2396_unescape(s::String)
-    replace(s, "%25" => '%',
-            # Control characters
-            "%0"  => '\0', "%1"    => '\x01', "%2"  => '\x02', "%3"  => '\x03',
-            "%4"  => '\x04', "%5"  => '\x05', "%6"  => '\x06', "%7"  => '\a',
-            "%8"  => '\b', "%9"    => '\t', "%a"    => '\n', "%b"    => '\v',
-            "%c"  => '\f', "%d"    => '\r', "%e"    => '\x0e', "%f"  => '\x0f',
-            "%10" => '\x10', "%11" => '\x11', "%12" => '\x12', "%13" => '\x13',
-            "%14" => '\x14', "%15" => '\x15', "%16" => '\x16', "%17" => '\x17',
-            "%18" => '\x18', "%19" => '\x19', "%1a" => '\x1a', "%1b" => '\e',
-            "%1c" => '\x1c', "%1d" => '\x1d', "%1e" => '\x1e', "%1f" => '\x1f',
-            "%7f" => '\x7f',
-            # Space
-            "%20" => ' ',
-            # Delims
-            "%3c" => '<', "%3e" => '>', "%23" => '#', "%22" => '"',
-            # Unwise
-            "%7b" => '{', "%7d" => '}', "%7c" => '|', "%5c" => '\\',
-            "%5e" => '^', "%5b" => '[', "%5d" => ']', "%60" => '`')
+function percentdecode(io::IO, s::AbstractString)
+    bytes = codeunits(s)
+    i = firstindex(bytes)
+    function hexdigit(c::UInt8)
+        # Since 0-9 + A-F + a-f span a total of 55 characters
+        # we can create a bitmask of the valid characters in
+        # a single 64-bit integer.
+        validchars = 0x007e0000007e03ff # 🪄
+        offc = c - UInt8('0')
+        if !iszero(validchars >>> offc % UInt8 & 0x1)
+            c & 0xf + 0x9 * ((c & 0x40) >> 6)
+        end
+    end
+    while i <= lastindex(bytes)
+        thisb = bytes[i]
+        outb, width = if thisb != UInt8('%') || i + 2 > lastindex(bytes)
+            thisb, 1
+        else
+            b1 = hexdigit(bytes[i + 1])
+            b2 = hexdigit(bytes[i + 2])
+            if isnothing(b1) || isnothing(b2)
+                throw(ArgumentError("Invalid percent-encoded byte sequence: %$(Char(bytes[i+1]))$(Char(bytes[i+2]))"))
+            end
+            b1 << 4 + b2, 3
+        end
+        write(io, outb)
+        i += width
+    end
+end
+
+function percentdecode(s::AbstractString)
+    '%' in s || return String(s)
+    out = IOBuffer()
+    percentdecode(out, s)
+    String(take!(out))
 end
