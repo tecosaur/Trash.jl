@@ -20,7 +20,7 @@ ability to restore items with [[@ref][~untrash~]], inspect the contents of the t
 | [[https://github.com/Byron/trash-rs][trash-rs]]        | Rust       | 📚 + [[https://github.com/orf/trash][🐚]]      | 🐧 🍏 🪟   | ✅️    | ❌      | ❌   | ❌      | ❌    | ❌    |
 | [[https://github.com/arsenetar/send2trash][send2trash]]      | Python     | 📚          | 🐧 🍏 🪟   | ✅️    | ❌      | ❌   | ❌      | ❌    | ❌    |
 | [[https://github.com/sindresorhus/trash][trash]]           | JavaScript | 📚 + [[https://github.com/sindresorhus/trash-cli][🐚]]      | 🐧 🍏 🪟   | ✅️    | ❌      | ❌   | ❌      | ❌    | ❌    |
-| [[https://github.com/babarot/gomi][gomi]]            | Go         | 🐚          | 🐧 🍏 🪟   | ✅    | 🐧      | 🐧   | 🐧      | 🐧    | ❌    |
+| [[https://github.com/babarot/gomi][gomi]]            | Go         | 🐚          | 🐧 🍏 🪟   | ✅    | 🐧      | 🐧   | 🐧      | ❌    | ❌    |
 | [[https://github.com/jorystewart/trashman][Trashman]]        | C#         | 🐚          | 🐧 〰️️ 🪟   | ✅    | ✅      | ✅   | ❌      | ✅    | ✅    |
 |-----------------+------------+-------------+-----------+-------+---------+------+---------+-------+-------|
 | [[https://github.com/andreafrancia/trash-cli][trash-cli]]       | Python     | 🐚          | 🐧 〰️️ 〰️️   | ✅️    | ✅️      | ✅️   | ❌      | ❌    | ✅️    |
