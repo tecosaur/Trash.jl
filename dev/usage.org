@@ -81,7 +81,14 @@ Everything works great 🙂.
 
 The "put back" functionality is broken, as the =.DS_Store= file is not properly
 modified with the provided system APIs. See
-https://openradar.appspot.com/23153124 for more information.
+https://openradar.appspot.com/23153124 for more information. This also means
+that we inevitably create orphaned metadata. We could explore editing the
+=.DS_Store= file ourselves to create correct metadata, however [[https://ponderthebits.com/2017/02/mac-dumpster-diving-identifying-deleted-file-references-in-the-trash-ds_store-files-part-2/][other people's
+investigations]] indicate that Finder holds an in-memory copy of the file which is
+prone to being used to overwrite any changes made. This makes the idea of
+editing the =.DS_Store= file seem rather poor, both due to the unpredictability of
+the final state and also the risk of corruption, depending on how our
+modifications to the file interact with how the Finder system handles it.
 
 We rely on parsing the (undocumented) =.DS_Store= file to read trash information.
 
