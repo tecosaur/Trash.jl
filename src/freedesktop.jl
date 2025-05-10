@@ -16,8 +16,14 @@ function trash(path::String; force::Bool=false)
     # Determine and create the relevant paths
     tdir = mkpath(trashdir(path))
     filesdir, infodir = joinpath(tdir, "files"), joinpath(tdir, "info")
-    isdir(filesdir) || mkdir(filesdir)
-    isdir(infodir) || mkdir(infodir)
+    for dir in (filesdir, infodir)
+        dstat = stat(dir)
+        if isdir(dstat)
+            filemode(dstat) & 0o777 == 0o700 || chmod(dir, 0o700)
+        else
+            mkdir(dir, mode=0o700)
+        end
+    end
     tname = trashname(path, tdir)
     trashpath = joinpath(filesdir, tname)
     # Write the `.trashinfo` file
@@ -33,7 +39,12 @@ function trash(path::String; force::Bool=false)
     mv(path, trashpath)
     # Update directorysizes if needed
     if isdir(trashpath)
-        dirsizes = open(joinpath(tdir, "directorysizes"), append = true)
+        dirsizes = joinpath(tdir, "directorysizes")
+        if !isfile(dirsizes)
+            touch(dirsizes)
+            chmod(dirsizes, 0o600)
+        end
+        dirsizes = open(dirsizes, append = true)
         println(dirsizes, diskusage(trashpath), ' ',
                 ceil(Int, mtime(infofile)), ' ',
                 rfc2396_escape(tname))
@@ -148,9 +159,10 @@ function empty(trashdir::String)
     infodir, filesdir = joinpath(trashdir, "info"), joinpath(trashdir, "files")
     isdir(infodir) && rm(infodir, force=true, recursive=true)
     isdir(filesdir) && rm(filesdir, force=true, recursive=true)
-    mkdir(infodir)
-    mkdir(filesdir)
+    mkdir(infodir, mode=0o700)
+    mkdir(filesdir, mode=0o700)
     write(joinpath(trashdir, "directorysizes"), "")
+    chmod(joinpath(trashdir, "directorysizes"), 0o600)
     nothing
 end
 
