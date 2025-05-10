@@ -61,6 +61,8 @@ Trash.trashdir
 Trash.trashes
 Trash.list
 Trash.search
+Trash.orphans
+Trash.purge
 Trash.empty
 #+end_src
 
