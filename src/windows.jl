@@ -455,10 +455,7 @@ function untrash(entry::TrashFile, dest::String = entry.path; force::Bool=false,
         end
     end
     mv(entry.trashfile, dest)
-    try # Cleanup metadata on a best-effort basis
-        mdata = metadatafile(entry)
-        !isnothing(mdata) && Base.rm(mdata)
-    catch end
+    purge(entry)
     dest
 end
 
@@ -483,6 +480,49 @@ function list(trashdir::String)
         push!(entries, TrashFile(path, info.filename, info.dtime))
     end
     entries
+end
+
+function orphans(trashdir::String)
+    orphanentries = TrashFile[]
+    try isdir(trashdir) catch; false end || return entries
+    rfiles = Set{String}()
+    inames = Set{String}()
+    for path in readdir(trashdir, join=true)
+        pbase = basename(path)
+        if startswith(pbase, "\$R")
+            push!(rfiles, path)
+            mdatafile = metadatafile(path)
+            if isnothing(mdatafile)
+                push!(orphanentries, TrashFile(path, "", DateTime(0)))
+            end
+        elseif startswith(pbase, "\$I")
+            push!(inames, pbase)
+        else
+            push!(orphanentries, TrashFile(path, "", DateTime(0)))
+        end
+    end
+    for iname in inames
+        rbase = "$R" * iname[ncodeunits("\$I#"):end]
+        rfull = joinpath(trashdir, rbase)
+        rfull ∈ rfiles && continue
+        ifull = joinpath(trashdir, iname)
+        info = parsemetadata(ifull)
+        if isnothing(info)
+            push!(orphanentries, TrashFile(ifull, "", DateTime(0)))
+        else
+            push!(orphanentries, TrashFile(rfull, info.filename, info.dtime))
+        end
+    end
+    orphanentries
+end
+
+function purge(entry::TrashFile)
+    ispath(entry.trashfile) && rm(entry.trashfile, recursive=true, force=true)
+    try # Cleanup metadata on a best-effort basis
+        mdata = metadatafile(entry)
+        !isnothing(mdata) && rm(mdata)
+    catch end
+    nothing
 end
 
 function empty(trashdir::String)

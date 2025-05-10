@@ -171,7 +171,7 @@ list.
 
 Filesystems that are network-based (e.g. NFS, SMB, or SSHFS) are skipped.
 
-See also: [`trash`](@ref), [`untrash`](@ref).
+See also: [`trash`](@ref), [`untrash`](@ref), [`orphans`](@ref).
 """ list()
 
 @doc """
@@ -199,16 +199,6 @@ and if `rm` is `true`, the file will be removed with `Base.rm`.
 See also: [`trash`](@ref), [`Trash.list`](@ref).
 """ untrash(::TrashFile, ::String; force::Bool, rm::Bool)
 
-function search end
-
-@doc """
-    search(path::String) -> Vector{TrashFile}
-
-Search for `path` entries in the trash.
-
-This is a minor convenience function on top of [`list`](@ref), which see.
-""" search(::String)
-
 @doc """
     untrash(path::String, dest::String = path; pick::Symbol = :only,
             force::Bool = false, rm::Bool = false)
@@ -225,6 +215,58 @@ chosen based on the `pick` option. The default is `:only`, which will throw an
 
 The `force` and `rm` options are passed through to the `untrash(::TrashFile)` function.
 """ untrash(::String, ::String; pick::Symbol, force::Bool, rm::Bool)
+
+function search end
+
+@doc """
+    search(path::String) -> Vector{TrashFile}
+
+Search for `path` entries in the trash.
+
+This is a minor convenience function on top of [`Trash.list`](@ref), which see.
+""" search(::String)
+
+function orphans end
+
+@doc """
+    orphans() -> Vector{TrashFile}
+
+List all entries in the trash that are missing data or metadata.
+
+Orphaned entries can occur when an operation has been interrupted, encountered
+an unexpected state and failed halfway, or when either a non-compliant tool
+or user has been fiddling with the trash directory.
+
+Dangling data produces `TrashFile` entries with an empty path, while dangling
+metadata produces full `TrashFile` entries that cannot be restored.
+
+This searches the system for trash directories on local, mounted, writable
+filesystems (including removable drives) and combines results into a single
+list.
+
+Filesystems that are network-based (e.g. NFS, SMB, or SSHFS) are skipped.
+
+See also: [`Trash.list`](@ref), [`Trash.purge`](@ref).
+""" orphans()
+
+@doc """
+    orphans(trashdir::String) -> Vector{TrashFile}
+
+List all entries in the trash directory `trashdir` that are missing data or metadata.
+""" orphans(::String)
+
+function purge end
+
+@doc """
+    purge(entry::TrashFile)
+
+Permanently delete the entry `entry` from the trash.
+
+To the extent possible, this will remove the data and metadata associated with
+the entry, and will not be recoverable.
+
+See also: [`Trash.list`](@ref), [`Trash.orphans`](@ref), [`Trash.empty`](@ref).
+""" purge(::TrashFile)
 
 function empty end
 
@@ -256,6 +298,8 @@ List all accessible local (physical) volumes on the system.
 trashes() = filter(isdir, unique!(map(trashdir, localvolumes())))
 
 list() = mapreduce(list, append!, trashes(), init=TrashFile[])
+
+orphans() = mapreduce(orphans, append!, trashes(), init=TrashFile[])
 
 function untrash(path::String, dest::String=path;
                  force::Bool=false, rm::Bool=false, pick::Symbol = :only)

@@ -411,6 +411,57 @@ function list(trashdir::String)
     entries
 end
 
+function orphans(trashdir::String)
+    orphanentries = TrashFile[]
+    expectedfiles = Set{String}()
+    dsstorefile = joinpath(trashdir, ".DS_Store")
+    isfile(dsstorefile) || return orphanentries
+    isreadable(dsstorefile) ||
+        throw(TrashSystemError("read", "Permission denied to read $dsstorefile, this application has likely not been granted the full disk access permission.", 0))
+    dsstore = open(dsstorefile, "r")
+    putbackfile = ""
+    putbacklocation = ""
+    for record in DSStoreParser.DSStore(dsstore)
+        if record.kind == :ptbL
+            putbackfile = record.filename
+            putbacklocation = DSStoreParser.value(String, record)
+        elseif record.kind == :ptbN
+            trashpath = joinpath(trashdir, record.filename)
+            if ispath(trashpath)
+                push!(expectedfiles, record.filename)
+                continue
+            end
+            oldname = DSStoreParser.value(String, record)
+            oldpath = if record.filename == putbackfile
+                joinpath("/", putbacklocation, oldname)
+            else
+                "unknown"
+            end
+            dtime = unix2datetime(ctime(trashpath))
+            push!(orphanentries, TrashFile(trashpath, oldpath, dtime))
+        end
+    end
+    close(dsstore)
+    for name in readdir(trashdir)
+        name == ".DS_Store" && continue
+        name ∈ expectedfiles && continue
+        push!(orphanentries, TrashFile(joinpath(trashdir, name), "", DateTime(0)))
+    end
+    orphanentries
+end
+
+function purge(entry::TrashFile)
+    isfile(entry.trashfile) &&
+        rm(entry.trashfile, force=true, recursive=true)
+    # Can't really do much about the metadata,
+    # writing to the DS_Store is very dodgy even
+    # if we implemented that (from reading online,
+    # it seems that Finder keeps its own in-memory
+    # copy and is prone to overwriting any manually
+    # applied changes).
+    nothing
+end
+
 function empty(trashdir::String)
     dsstorefile = joinpath(trashdir, ".DS_Store")
     isfile(dsstorefile) || return
