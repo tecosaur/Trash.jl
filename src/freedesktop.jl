@@ -52,6 +52,98 @@ function list(trashdir::String)
     entries
 end
 
+function orphans(trashdir::String)
+    orphanentries = TrashFile[]
+    files = Set{String}()
+    filedir = joinpath(trashdir, "files")
+    files = if isdir(filedir)
+        Set(readdir(filedir, join=true))
+    else
+        Set{String}()
+    end
+    infodir = joinpath(trashdir, "info")
+    if isdir(infodir)
+        for infofile in readdir(infodir, join=true)
+            entry = trashinfo(infofile)
+            if isnothing(entry)
+                push!(orphanentries, TrashFile(infofile, "", DateTime(0)))
+                continue
+            end
+            if entry.trashfile ∈ files
+                delete!(files, entry.trashfile)
+            else
+                push!(orphanentries, entry)
+            end
+        end
+    end
+    for file in files
+        push!(orphanentries, TrashFile(file, "", DateTime(0)))
+    end
+    orphanentries
+end
+
+function purge(entry::TrashFile, notadir::Bool = !isdir(entry.trashfile))
+    ispath(entry.trashfile) && rm(entry.trashfile, recursive=!notadir, force=true)
+    # Remove .trashinfo
+    trashdir = dirname(dirname(entry.trashfile))
+    infofile = joinpath(trashdir, "info", basename(entry.trashfile) * ".trashinfo")
+    infomtime = if isfile(infofile)
+        string(ceil(Int, mtime(infofile)))
+    else "" end
+    isfile(infofile) && rm(infofile)
+    # Update dirsizes if needed
+    !notadir && !isempty(entry.path) && return
+    dirsizesfile = joinpath(trashdir, "directorysizes")
+    isfile(dirsizesfile) && iswritable(dirsizesfile) || return
+    dirsizes = IOBuffer(read(dirsizesfile))
+    matchedline = 0
+    for (i, line) in enumerate(eachline(dirsizes))
+        count(' ', line) >= 3 || continue
+        size, mtime, path_esc = split(line, ' ', limit=3)
+        if mtime == infomtime && entry.path == percentdecode(String(path_esc))
+            matchedline = i
+            break
+        end
+    end
+    # In the well-behaved case, at this stage will have
+    # a non-zero `matchedline`, however I also want to
+    # handle the case where somebody else has been naughty
+    # and the mtime no longer matches. In this case, we
+    # should see if there's a single entry with a matching
+    # path. If so, we can assume that is supposed to match.
+    if iszero(matchedline)
+        seekstart(dirsizes)
+        pathmatchcount = 0
+        for (i, line) in enumerate(eachline(dirsizes))
+            count(' ', line) >= 3 || continue
+            size, mtime, path_esc = split(line, ' ', limit=3)
+            if entry.path == percentdecode(path_esc)
+                pathmatchcount += 1
+                matchedline = i
+            end
+        end
+        # Only let `matchedline` be non-zero if there was exactly
+        # one match. Otherwise, it's best to do nothing.
+        if pathmatchcount > 1
+            matchedline = 0
+        end
+    end
+    iszero(matchedline) && return
+    io = open(dirsizesfile, "w")
+    seekstart(dirsizes)
+    for (i, line) in enumerate(eachline(dirsizes))
+        if i == matchedline
+            # The line has been consumed from `dirsizes`, so
+            # we can simply write the remainder of the buffer
+            # and in doing so drain the `eachline` iterator.
+            write(io, dirsizes)
+        else
+            println(io, line)
+        end
+    end
+    close(io)
+end
+
 function empty(trashdir::String)
     infodir, filesdir = joinpath(trashdir, "info"), joinpath(trashdir, "files")
     isdir(infodir) && rm(infodir, force=true, recursive=true)
@@ -82,23 +174,7 @@ function untrash(entry::TrashFile, dest::String = entry.path; force::Bool=false,
     end
     # Restore file
     mv(entry.trashfile, dest)
-    # Remove .trashinfo
-    trashdir = dirname(dirname(entry.trashfile))
-    infofile = joinpath(trashdir, "info", basename(entry.trashfile) * ".trashinfo")
-    isfile(infofile) && Base.rm(infofile)
-    # Update dirsizes if needed
-    if isdir(dest) && isfile((dirsizesfile = joinpath(trashdir, "directorysizes");))
-        dirsizes = IOBuffer(read(dirsizesfile))
-        io = open(dirsizesfile, "w")
-        for line in eachline(dirsizes)
-            if sum(==(' '), line) >= 3
-                size, mtime, path_esc = split(line, ' ', limit=3)
-                path = rfc2396_unescape(String(path_esc))
-                path != dest && println(io, line)
-            end
-        end
-        close(io)
-    end
+    purge(entry, !isdir(dest))
     dest
 end
 

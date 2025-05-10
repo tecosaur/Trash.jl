@@ -8,7 +8,7 @@ using Dates
 export trash, untrash, TrashFile
 
 @static if VERSION >= v"1.11"
-    eval(Expr(:public, :trashdir, :trashes, :list, :search, :empty))
+    eval(Expr(:public, :trashdir, :trashes, :list, :search, :orphans, :purge, :empty))
 end
 
 include("generic.jl")
@@ -30,6 +30,9 @@ precompile(untrash, (String,))
 precompile(list, ())
 precompile(list, (String,))
 precompile(search, (String,))
+precompile(orphans, ())
+precompile(orphans, (String,))
+precompile(purge, (TrashFile,))
 precompile(trashdir, ())
 precompile(trashdir, (String,))
 precompile(trashes, ())
