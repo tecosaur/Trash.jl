@@ -128,13 +128,13 @@ end
 function trash end
 
 @doc """
-    trash(path::String; force::Bool=false)
+    trash(path::AbstractString; force::Bool=false)
 
 Put the file, link, or empty directory in the system trash. If `force=true` is
 passed, a non-existing path is not treated as an error.
 
 See also: [`Trash.list`](@ref), [`untrash`](@ref).
-""" trash(::String; force::Bool=false)
+""" trash(::AbstractString; force::Bool=false)
 
 function trashdir end
 
@@ -145,10 +145,10 @@ Return the general trash directory for the current user.
 """ trashdir()
 
 @doc """
-    trashdir(path::String) -> String
+    trashdir(path::AbstractString) -> String
 
 Return the trash directory used for `path`.
-""" trashdir(::String)
+""" trashdir(::AbstractString)
 
 function trashes end
 
@@ -174,18 +174,18 @@ Filesystems that are network-based (e.g. NFS, SMB, or SSHFS) are skipped.
 See also: [`trash`](@ref), [`untrash`](@ref), [`orphans`](@ref).
 """ list()
 
-@doc """
-    list(trashdir::String) -> Vector{TrashFile}
+"""
+    list(trashdir::AbstractString) -> Vector{TrashFile}
 
 List all entries currently in the trash directory `trashdir`.
 
 See also: [`trashdir`](@ref), [`search`](@ref).
-""" list(::String)
+""" list(::AbstractString)
 
 function untrash end
 
 @doc """
-    untrash(entry::TrashFile, dest::String = original path;
+    untrash(entry::TrashFile, dest::AbstractString = original path;
             force::Bool = false, rm::Bool = false)
 
 Restore a file, link, or directory represented by `entry` from the system trash.
@@ -197,10 +197,10 @@ If `force` is `true`, any existing file at the destination will be trashed,
 and if `rm` is `true`, the file will be removed with `Base.rm`.
 
 See also: [`trash`](@ref), [`Trash.list`](@ref).
-""" untrash(::TrashFile, ::String; force::Bool, rm::Bool)
+""" untrash(::TrashFile, ::AbstractString; force::Bool, rm::Bool)
 
 @doc """
-    untrash(path::String, dest::String = path; pick::Symbol = :only,
+    untrash(path::AbstractString, dest::AbstractString = path; pick::Symbol = :only,
             force::Bool = false, rm::Bool = false)
 
 Restore the original contents of `path`, optionally specifying a different `dest`ination.
@@ -214,17 +214,17 @@ chosen based on the `pick` option. The default is `:only`, which will throw an
 `:oldest`, which will select the most recent or oldest entry, respectively.
 
 The `force` and `rm` options are passed through to the `untrash(::TrashFile)` function.
-""" untrash(::String, ::String; pick::Symbol, force::Bool, rm::Bool)
+""" untrash(::AbstractString, ::AbstractString; pick::Symbol, force::Bool, rm::Bool)
 
 function search end
 
 @doc """
-    search(path::String) -> Vector{TrashFile}
+    search(path::AbstractString) -> Vector{TrashFile}
 
 Search for `path` entries in the trash.
 
 This is a minor convenience function on top of [`Trash.list`](@ref), which see.
-""" search(::String)
+""" search(::AbstractString)
 
 function orphans end
 
@@ -250,10 +250,10 @@ See also: [`Trash.list`](@ref), [`Trash.purge`](@ref).
 """ orphans()
 
 @doc """
-    orphans(trashdir::String) -> Vector{TrashFile}
+    orphans(trashdir::AbstractString) -> Vector{TrashFile}
 
 List all entries in the trash directory `trashdir` that are missing data or metadata.
-""" orphans(::String)
+""" orphans(::AbstractString)
 
 function purge end
 
@@ -279,10 +279,10 @@ See also: [`trash`](@ref), [`Trash.list`](@ref).
 """ empty()
 
 @doc """
-    empty(trashdir::String)
+    empty(trashdir::AbstractString)
 
 Empty the trash directory `trashdir`.
-""" empty(::String)
+""" empty(::AbstractString)
 
 function localvolumes end
 
@@ -295,11 +295,27 @@ List all accessible local (physical) volumes on the system.
 
 # Generic implementations
 
+trash(s::AbstractString; force::Bool=false) = trash(String(s); force)
+
+untrash(s::AbstractString, d::AbstractString; kwargs...) =
+    untrash(String(s), String(d); kwargs...)
+
+untrash(s::TrashFile, d::AbstractString; kwargs...) =
+    untrash(s, String(d); kwargs...)
+
+trashdir(s::AbstractString) = trashdir(String(s))
+
 trashes() = filter(isdir, unique!(map(trashdir, localvolumes())))
+
+list(s::AbstractString) = list(String(s))
 
 list() = mapreduce(list, append!, trashes(), init=TrashFile[])
 
+search(s::AbstractString) = search(String(s))
+
 orphans() = mapreduce(orphans, append!, trashes(), init=TrashFile[])
+
+empty(s::AbstractString) = empty(String(s))
 
 function untrash(path::String, dest::String=path;
                  force::Bool=false, rm::Bool=false, pick::Symbol = :only)
