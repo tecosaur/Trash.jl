@@ -3,7 +3,7 @@
 * Summary
 
 The way that trashing is performed differs /wildly/ between platforms:
-+ On Linux, we trashing works by moving files and creating/reading paired
++ On Linux, trashing works by moving files and creating/reading paired
   ini-style =.trashinfo= files (this is the [[https://specifications.freedesktop.org/trash-spec/1.0/][Freedesktop Trashspec]]).
 + On MacOS, trashing is done using the Objective-C API, specifically
   [[https://developer.apple.com/documentation/foundation/filemanager/trashitem(at:resultingitemurl:)?language=objc][~trashItemAtURL:resultingItemURL:error:~]] and manually parsing the =.DS_Store=
